@@ -81,7 +81,7 @@ export function renderScore(container, score, { width } = {}) {
   container.innerHTML = '';
   const W = Math.max(320, width ?? container.clientWidth);
   const ts = score.timeSig;
-  const perLine = W >= 1000 ? 4 : W >= 640 ? 3 : W >= 420 ? 2 : 1;
+  const perLine = Math.max(1, Math.min(score.measures.length, W >= 1000 ? 4 : W >= 640 ? 3 : W >= 420 ? 2 : 1));
   const lineH = 150;
   const marginX = 12;
   const firstExtra = 70;

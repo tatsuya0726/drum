@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0f1115" />
-    <title>Drum Practice</title>
+    <title>Drum Level Up</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥁</text></svg>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -37,7 +37,7 @@
     <header class="appbar">
       <button class="brand" id="home-btn" title="ホーム">
         <span class="logo">🥁</span>
-        <span class="brand-name">Drum Practice</span>
+        <span class="brand-name">Drum Level Up</span>
       </button>
       <div class="doc" id="doc">
         <input class="doc-title-input hidden" id="doc-title-input" aria-label="譜面の名前" />
@@ -47,6 +47,9 @@
       <div class="appbar-actions">
         <button class="btn btn-accent hidden" id="to-editor-btn" title="読み取った譜面を作成モードで直す">
           <svg class="ic"><use href="#i-edit" /></svg><span class="hide-sm">この譜面を編集</span>
+        </button>
+        <button class="btn btn-accent hidden" id="to-practice-btn" title="このフレーズで録音・採点する">
+          <svg class="ic"><use href="#i-play" /></svg><span class="hide-sm">このフレーズで練習</span>
         </button>
         <button class="btn btn-ghost" id="new-btn" title="新しく作る">
           <svg class="ic"><use href="#i-plus" /></svg><span class="hide-sm">新規作成</span>
@@ -62,44 +65,112 @@
     </header>
 
     <main class="viewer" id="viewer">
-      <section class="welcome" id="welcome">
-        <div class="hero">
-          <h1>ドラム譜を、<br />そのまま練習トラックに。</h1>
-          <p class="lead">マス目で打ち込むか PDF を読み込むと、楽譜と生ドラムの音で再生します。テンポを落としたり、苦手な小節だけループしたり。</p>
+      <section class="welcome hub" id="welcome">
+        <div class="player-card">
+          <div class="lv-badge"><small>Lv</small><b id="hub-level">1</b></div>
+          <div class="lv-info">
+            <div class="lv-title">ドラム上達ゲーム</div>
+            <div class="xp-bar"><div class="xp-fill" id="hub-xp-fill"></div></div>
+            <div class="lv-sub"><span id="hub-xp-text"></span></div>
+          </div>
+          <div class="lv-stats">
+            <div><b id="hub-takes">0</b><small>録音した回数</small></div>
+            <div><b id="hub-cleared">0</b><small>80点以上のフレーズ</small></div>
+          </div>
         </div>
-        <div class="start">
-          <button class="start-card create" id="create-btn">
-            <span class="dz-icon"><svg class="ic"><use href="#i-plus" /></svg></span>
-            <span class="dz-title">新しく譜面を作る</span>
-            <span class="dz-sub">マス目をクリックして入力。楽譜が自動で描かれて、その通りに鳴ります</span>
-          </button>
-        <label class="dropzone start-card" id="dropzone">
-          <input id="file-input-2" type="file" accept="application/pdf,.pdf" hidden />
-          <span class="dz-icon"><svg class="ic"><use href="#i-file" /></svg></span>
-          <span class="dz-title">PDF をドロップ、またはクリックして選択</span>
-          <span class="dz-sub">5線のドラム譜を自動で読み取ります (ベータ)。読み取った譜面は作成モードで直せます</span>
-        </label>
+        <div class="hub-help">
+          <p>フレーズを選んで、メトロノームに合わせて叩いて録音すると採点されます。録音はフレーズごとに保存され、点数の推移で上達が分かります。</p>
+          <div class="hub-actions">
+            <button class="btn" id="hub-calibrate" title="マイクと音の遅れを計って採点を正確にします">タイミング補正 <small class="muted" id="hub-latency"></small></button>
+            <button class="btn" id="create-btn"><svg class="ic"><use href="#i-plus" /></svg>フレーズを作る</button>
+            <label class="btn" id="dropzone">
+              <input id="file-input-2" type="file" accept="application/pdf,.pdf" hidden />
+              <svg class="ic"><use href="#i-file" /></svg>PDFから取り込む
+            </label>
+          </div>
         </div>
-        <div class="library hidden" id="library">
-          <span class="samples-label">保存した譜面</span>
-          <div class="library-list" id="library-list"></div>
+        <div id="phrase-sections"></div>
+      </section>
+      <section class="practice-view hidden" id="practice-view">
+        <div class="pv-head">
+          <button class="icon-btn" id="pv-back" title="フレーズ一覧へ" aria-label="戻る"><svg class="ic"><use href="#i-prev" /></svg></button>
+          <div class="pv-titles">
+            <h2 id="pv-title"></h2>
+            <div class="pv-meta" id="pv-meta"></div>
+          </div>
+          <button class="btn btn-ghost" id="pv-edit">編集</button>
         </div>
-        <div class="samples">
-          <span class="samples-label">サンプルで試す</span>
-          <button class="sample-card" data-sample="samples/groove.pdf">
-            <span class="sample-icon"><svg class="ic"><use href="#i-music" /></svg></span>
-            <span><b>Sample Groove</b><small>8ビート · ♩=100</small></span>
-          </button>
-          <button class="sample-card" data-sample="samples/funk.pdf">
-            <span class="sample-icon"><svg class="ic"><use href="#i-music" /></svg></span>
-            <span><b>Funk Exercise</b><small>16ビート · ♩=92</small></span>
-          </button>
+
+        <div class="paper pv-paper">
+          <div class="notation" id="pv-notation"></div>
+          <div class="overlay" id="pv-overlay"></div>
         </div>
-        <ul class="features">
-          <li><b>テンポ変更</b>30〜300 BPM、50% / 75% ワンタッチ</li>
-          <li><b>区間ループ</b>楽譜上をドラッグして範囲指定</li>
-          <li><b>マイナスワン</b>自分のパートだけミュート</li>
-        </ul>
+
+        <div class="pv-grid">
+          <div class="card pv-controls">
+            <div class="pv-tempo">
+              <button class="round-btn" data-pv-tempo="-5" aria-label="テンポを下げる">−</button>
+              <div class="tempo-display">
+                <div class="tempo-value"><input id="pv-bpm" type="number" min="30" max="300" value="100" aria-label="BPM" /><span>BPM</span></div>
+                <input id="pv-bpm-range" type="range" min="30" max="300" value="100" aria-label="テンポ" />
+              </div>
+              <button class="round-btn" data-pv-tempo="5" aria-label="テンポを上げる">+</button>
+            </div>
+            <div class="pv-buttons">
+              <button class="big-btn listen" id="pv-listen"><svg class="ic"><use href="#i-play" /></svg><span id="pv-listen-label">手本を聴く</span></button>
+              <button class="big-btn record" id="pv-record"><span class="rec-dot"></span><span id="pv-record-label">録音する</span></button>
+            </div>
+            <div class="pv-options">
+              <label class="row"><span>フレーズを続けて叩く回数</span>
+                <select id="pv-loops"><option value="1">1回</option><option value="2">2回</option><option value="4">4回</option><option value="8">8回</option></select>
+              </label>
+              <label class="row switch-row"><span>メトロノームを鳴らす</span><input type="checkbox" class="switch" id="pv-metro" /></label>
+              <label class="row switch-row sub-row"><span>メトロノームも一緒に録音する</span><input type="checkbox" class="switch" id="pv-click-rec" /></label>
+              <label class="row switch-row"><span>録音中も手本のドラムを鳴らす</span><input type="checkbox" class="switch" id="pv-guide" /></label>
+              <label class="row switch-row"><span>イヤホン・ヘッドホンを使う</span><input type="checkbox" class="switch" id="pv-headphones" /></label>
+              <p class="note">録音前に1小節のカウントが入ります。スピーカーで鳴らす場合は、メトロノームや手本の音を拾わないようにエコー除去を使います。採点がずれるときは<button class="link-btn" id="pv-calibrate">タイミング補正</button>をしてください。</p>
+            </div>
+          </div>
+
+          <div class="card pv-shift">
+            <h3>フレーズをずらす</h3>
+            <p class="note">全体や楽器ごとに音符単位でずらして、新しいパターンを作れます (フレーズの長さで一周します)。</p>
+            <div class="row">
+              <span>ずらすもの</span>
+              <select id="pv-shift-target"></select>
+            </div>
+            <div class="row">
+              <span>単位</span>
+              <select id="pv-shift-unit"><option value="12">16分音符</option><option value="24">8分音符</option><option value="48">4分音符</option><option value="6">32分音符</option></select>
+            </div>
+            <div class="shift-buttons">
+              <button class="btn" id="pv-shift-left">◀ 前へ</button>
+              <span class="shift-label" id="pv-shift-label"></span>
+              <button class="btn" id="pv-shift-right">後ろへ ▶</button>
+            </div>
+            <div class="row">
+              <button class="btn btn-ghost" id="pv-shift-reset">元に戻す</button>
+              <button class="btn btn-accent" id="pv-shift-save">マイフレーズに保存</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card pv-result hidden" id="pv-result"></div>
+
+        <div class="card pv-history">
+          <h3>成長の記録</h3>
+          <div id="pv-chart"></div>
+          <div class="take-list" id="pv-takes"></div>
+          <audio id="pv-take-audio" controls class="take-audio"></audio>
+        </div>
+
+        <div class="rec-overlay hidden" id="pv-rec-overlay">
+          <div class="rec-box">
+            <span class="rec-dot big"></span>
+            <div class="rec-count" id="pv-rec-count">1</div>
+            <button class="btn" id="pv-rec-stop">やめる</button>
+          </div>
+        </div>
       </section>
       <div class="pages" id="pages"></div>
       <section class="editor-view hidden" id="editor-view">

@@ -1,0 +1,25 @@
+<!doctype html><html><body><script type="module">
+import { TakeRecorder } from '../src/game/recorder.js';
+import { detectOnsets } from '../src/game/onsets.js';
+const ctx = new AudioContext();
+await ctx.resume();
+const clickBus = ctx.createGain();
+const rec = new TakeRecorder(ctx, clickBus);
+// マイクの代わりに、決まった時刻にノイズバーストを鳴らすノードをつなぐ
+rec.source = ctx.createGain();
+rec.recDest = ctx.createMediaStreamDestination();
+rec.source.connect(rec.recDest);
+await ctx.audioWorklet.addModule(new URL('/worklets/capture.js', location.href));
+rec.workletLoaded = true;
+rec.start({ includeClick: false });
+
+const sr = ctx.sampleRate, buf = ctx.createBuffer(1, sr * 0.2, sr), d = buf.getChannelData(0);
+for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sr * 0.03));
+const t0 = ctx.currentTime + 0.5, times = [];
+for (let k = 0; k < 8; k++) { const t = t0 + k * 0.3; times.push(t); const s = ctx.createBufferSource(); s.buffer = buf; s.connect(rec.source); s.start(t); }
+await new Promise((r) => setTimeout(r, 3300));
+const out = await rec.stop();
+const hits = detectOnsets(out.pcm, out.sampleRate).map((o) => out.pcmStart + o.time);
+const peaks = []; let thr = 0.3; for (let i = 1; i < out.pcm.length; i++) if (Math.abs(out.pcm[i]) > thr && Math.abs(out.pcm[i-1]) <= thr && (!peaks.length || i - peaks[peaks.length-1] > sr*0.1)) peaks.push(i);
+document.body.dataset.result = JSON.stringify({ sr, wsr: out.sampleRate, diffs: times.map((t, i) => Math.round(((hits[i] ?? NaN) - t) * 1000 * 10) / 10), raw: peaks.map((p,i)=> Math.round((out.pcmStart + p/sr - times[i])*10000)/10), base: ctx.baseLatency, outL: ctx.outputLatency, chunks: rec.pcm.length });
+</script></body></html>

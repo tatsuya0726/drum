@@ -5,7 +5,8 @@ import { ticksPerBeat, measureTicks } from './audio/sequencer.js';
 import { buildScore } from './omr/buildScore.js';
 import { analyzePdfPage, openPdf, readTextHints, renderToCanvas } from './pdf.js';
 import { GridEditor, GRIDS } from './grid.js';
-import { deleteDoc, listDocs, loadDoc, makeDoc, saveDoc } from './library.js';
+import { loadDoc, makeDoc, saveDoc } from './library.js';
+import { initGame } from './game/game.js';
 
 const $ = (id) => document.getElementById(id);
 const PDF_PREFIX = 'drum-practice:v2:';
@@ -65,22 +66,25 @@ const KIND_NAMES = { x: '×', filled: '●', open: '○' };
 
 function setView(view) {
   if (state.view !== view) stop();
+  if (state.view === 'practice' && view !== 'practice') game?.stopAll();
   state.view = view;
   $('welcome').classList.toggle('hidden', view !== 'home');
   $('pages').classList.toggle('hidden', view !== 'pdf');
   $('editor-view').classList.toggle('hidden', view !== 'edit');
+  $('practice-view').classList.toggle('hidden', view !== 'practice');
   $('to-editor-btn').classList.toggle('hidden', view !== 'pdf');
+  $('to-practice-btn').classList.toggle('hidden', view !== 'edit');
   $('recognition-section').classList.toggle('hidden', view !== 'pdf');
   $('doc-title').classList.toggle('hidden', view === 'edit');
   $('doc-title-input').classList.toggle('hidden', view !== 'edit');
   document.body.dataset.view = view;
-  if (view === 'home') {
+  if (view === 'home' || view === 'practice') {
     state.score = null;
     $('player').classList.add('disabled');
     $('doc-title').textContent = '';
     $('doc-meta').textContent = '';
-    renderLibrary();
   }
+  if (view === 'home') game?.renderHub();
   $('viewer').scrollTop = 0;
 }
 
@@ -471,42 +475,7 @@ $('del-btn').addEventListener('click', () => {
   toast('小節を削除しました (Ctrl+Z で元に戻せます)', 2500);
 });
 
-// ------------------------------------------------------------ ホーム (保存した譜面)
-
-function renderLibrary() {
-  const docs = listDocs();
-  $('library').classList.toggle('hidden', docs.length === 0);
-  const list = $('library-list');
-  list.innerHTML = '';
-  for (const d of docs) {
-    const item = document.createElement('div');
-    item.className = 'lib-item';
-    const date = new Date(d.updatedAt);
-    item.innerHTML = `
-      <button class="lib-open" data-open="${d.id}">
-        <span class="sample-icon"><svg class="ic"><use href="#i-music" /></svg></span>
-        <span><b></b><small>${d.measures}小節 · ♩=${d.bpm} · ${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></span>
-      </button>
-      <button class="icon-btn" data-delete="${d.id}" title="削除" aria-label="削除"><svg class="ic"><use href="#i-trash" /></svg></button>`;
-    item.querySelector('b').textContent = d.title;
-    list.appendChild(item);
-  }
-}
-
-$('library-list').addEventListener('click', (e) => {
-  const open = e.target.closest('[data-open]');
-  if (open) {
-    const doc = loadDoc(open.dataset.open);
-    if (doc) openDoc(doc);
-    else toast('譜面を読み込めませんでした');
-    return;
-  }
-  const del = e.target.closest('[data-delete]');
-  if (del && confirm('この譜面を削除しますか?')) {
-    deleteDoc(del.dataset.delete);
-    renderLibrary();
-  }
-});
+// ------------------------------------------------------------ ホーム
 
 $('create-btn').addEventListener('click', newDoc);
 $('new-btn').addEventListener('click', newDoc);
@@ -716,6 +685,7 @@ $('play-btn').addEventListener('click', togglePlay);
 $('prev-btn').addEventListener('click', () => select(currentMeasure() - 1, { seek: true, scroll: true }));
 $('next-btn').addEventListener('click', () => select(currentMeasure() + 1, { seek: true, scroll: true }));
 player.onEnd = () => {
+  if (state.view === 'practice') return;
   setPlayingUI(false);
   clearPlaying();
   grid.highlight(null);
@@ -795,7 +765,7 @@ function clearPlaying() {
 
 let lastShown = -2;
 function frame() {
-  const pos = player.position();
+  const pos = state.view === 'practice' ? null : player.position();
   if (pos) {
     updatePosition(pos);
     if (pos.measure >= 0) {
@@ -1021,6 +991,19 @@ window.addEventListener('resize', () => {
     if (state.view === 'pdf' && state.pdf) renderPages();
     if (state.view === 'edit') renderNotation();
   }, 300);
+});
+
+const game = initGame({
+  player,
+  toast,
+  setView,
+  openDoc: (doc) => doc && openDoc(doc),
+});
+
+$('to-practice-btn').addEventListener('click', () => {
+  if (!state.doc) return;
+  saveDoc(state.doc);
+  game.openPhrase(state.doc.id);
 });
 
 loadMixer();
