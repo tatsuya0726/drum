@@ -74,7 +74,8 @@ export class Player {
     const loop = this.seq.loop;
     let start = fromMeasure;
     if (loop.enabled && (start < loop.start || start > loop.end)) start = loop.start;
-    this.seq.start(start, this.ctx.currentTime + 0.08, this.countIn);
+    this.startTime = this.ctx.currentTime + 0.12;
+    this.seq.start(start, this.startTime, this.countIn);
     this.markers = [];
     this.playing = true;
     clearInterval(this.timer);
@@ -94,7 +95,7 @@ export class Player {
     if (!this.playing) return;
     const events = this.seq.advance(this.ctx.currentTime + LOOKAHEAD);
     for (const e of events) {
-      if (e.type === 'note') this.hit(e.inst, e.time, e.vel);
+      if (e.type === 'note' && !this.drumsMuted) this.hit(e.inst, e.time, e.vel);
       else if (e.type === 'click') this.synth.click(e.time, e.accent);
       if (e.type === 'pos' || e.type === 'click' || e.type === 'end') this.markers.push(e);
     }

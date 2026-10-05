@@ -1,0 +1,20 @@
+<!doctype html><html><body><script type="module">
+// 手本 (8分 × 8) に対して、わざとずらした打音を録音経路に流して採点する
+import { TakeRecorder } from '../src/game/recorder.js';
+import { detectOnsets } from '../src/game/onsets.js';
+import { scoreTake } from '../src/game/scoring.js';
+const ctx = new AudioContext(); await ctx.resume();
+const rec = new TakeRecorder(ctx, ctx.createGain());
+rec.source = ctx.createGain(); rec.recDest = ctx.createMediaStreamDestination(); rec.source.connect(rec.recDest);
+await ctx.audioWorklet.addModule(new URL('/worklets/capture.js', location.href)); rec.workletLoaded = true;
+rec.start({ includeClick: false });
+const sr = ctx.sampleRate, buf = ctx.createBuffer(1, sr * 0.2, sr), d = buf.getChannelData(0);
+for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sr * 0.03));
+const t0 = ctx.currentTime + 0.6, expected = [], offs = [0.005, -0.03, 0.012, 0.06, null, -0.01, 0.02, 0.004];
+offs.forEach((o, k) => { const t = t0 + k * 0.375; expected.push(t); if (o == null) return; const s = ctx.createBufferSource(); s.buffer = buf; s.connect(rec.source); s.start(t + o); });
+await new Promise((r) => setTimeout(r, 4200));
+const out = await rec.stop();
+const hits = detectOnsets(out.pcm, out.sampleRate).map((o) => ({ time: out.pcmStart + o.time }));
+const r = scoreTake(expected, hits);
+document.body.dataset.result = JSON.stringify({ score: r.score, rank: r.rank, grades: r.judgments.map((j) => j.grade), offsets: r.judgments.map((j) => j.offset == null ? null : Math.round(j.offset * 1000)), mean: Math.round(r.meanOffset * 1000), extra: r.extra });
+</script></body></html>
