@@ -99,3 +99,40 @@ describe('MuseScore engraving', () => {
     t(`funk measure ${i + 1}`, () => expect(toPatterns(funkScore.measures[i])).toEqual(exp));
   });
 });
+
+// 左右 2 列に 1 小節ずつの練習が並ぶ教本風のページ (samples/alphabet-A.ly と同じ作り方で A〜P を並べた画像)
+describe('two-column exercise page', () => {
+  const png = PNG.sync.read(fs.readFileSync(new URL('./fixtures/alphabet-2col.png', import.meta.url)));
+  const page = analyzePage(png.data, png.width, png.height);
+  const score = buildScore([page]);
+  const expectedAll = JSON.parse(fs.readFileSync(new URL('./fixtures/alphabet-2col.json', import.meta.url), 'utf8'));
+  it('finds both columns (16 staves) in reading order (A-H left, then I-P right)', () => {
+    expect(page.staves.length).toBe(16);
+    expect(score.measures.length).toBe(16);
+    const xs = score.measures.map((m) => m.source.x0);
+    expect(xs.slice(0, 8).every((x) => x < 0.5)).toBe(true);
+    expect(xs.slice(8).every((x) => x > 0.5)).toBe(true);
+  });
+  Object.entries(expectedAll).forEach(([letter, exp], i) => {
+    it(`exercise ${letter}`, () => expect(toPatterns(score.measures[i])).toEqual(exp));
+  });
+});
+
+// 16分と32分が混ざった小節 (samples/thirtysecond.ly)。連桁の本数で音価を読む
+describe('16th and 32nd notes', () => {
+  const png = PNG.sync.read(fs.readFileSync(new URL('./fixtures/thirtysecond-200.png', import.meta.url)));
+  const score = buildScore([analyzePage(png.data, png.width, png.height)]);
+  const ticks = (m, inst) => m.notes.filter((n) => n.inst === inst).map((n) => n.tick / 6); // 32分 = 1
+  it('measure 1', () => {
+    const m = score.measures[0];
+    expect(ticks(m, 'hhc')).toEqual([0, 2, 3, 4, 24]);
+    expect(ticks(m, 'snare')).toEqual([8, 9, 10, 12]);
+    expect(ticks(m, 'kick')).toEqual([16, 18, 20, 21, 22]);
+  });
+  it('measure 2', () => {
+    const m = score.measures[1];
+    expect(ticks(m, 'hhc')).toEqual([0, 4, 6, 24, 25, 26, 28]);
+    expect(ticks(m, 'snare')).toEqual([8, 9, 10, 11, 12]);
+    expect(ticks(m, 'kick')).toEqual([16, 22]);
+  });
+});

@@ -44,7 +44,19 @@ function durationPenalty(d, slotsPerBeat) {
  * @param {number} slotsPerBeat 1拍あたりのスロット数
  * @param {number} space 五線の間隔 (px)
  */
-export function assignSlots(xs, m, slots, slotsPerBeat, space) {
+/**
+ * values[i]: 連桁・旗から読んだ音価 (スロット数)。null なら不明。
+ * 次の音までの長さが音価と同じなら自然、長ければ (後ろに休符がある) 少し不自然、短ければありえない
+ */
+function valuePenalty(v, d) {
+  if (v == null) return 0;
+  if (d === v) return 0;
+  if (d === v * 1.5) return 0.4; // 付点
+  if (d > v) return 1.2;
+  return 9;
+}
+
+export function assignSlots(xs, m, slots, slotsPerBeat, space, values = []) {
   const n = xs.length;
   if (n === 0) return [];
   if (n > slots) {
@@ -93,7 +105,8 @@ export function assignSlots(xs, m, slots, slotsPerBeat, space) {
               base +
               ((logGaps[i] - logB - logS[d]) / sigma) ** 2 +
               positionPenalty(t, slotsPerBeat) +
-              durationPenalty(d, slotsPerBeat);
+              durationPenalty(d, slotsPerBeat) +
+              valuePenalty(values[i], d);
             const k = (i + 1) * slots + t;
             if (c < dp[k]) {
               dp[k] = c;
@@ -107,7 +120,7 @@ export function assignSlots(xs, m, slots, slotsPerBeat, space) {
         const base = dp[(n - 1) * slots + s];
         if (base === INF) continue;
         const d = slots - s;
-        const c = base + ((logGaps[n - 1] - logB - logS[d]) / sigma) ** 2 + durationPenalty(d, slotsPerBeat) * 0.5;
+        const c = base + ((logGaps[n - 1] - logB - logS[d]) / sigma) ** 2 + durationPenalty(d, slotsPerBeat) * 0.5 + valuePenalty(values[n - 1], d);
         if (c < best.cost) {
           const out = new Array(n);
           let cur = s;

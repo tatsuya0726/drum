@@ -46,13 +46,27 @@ export function buildScore(pages, opts = {}) {
         const onsets = clusterOnsets(m.notes, st.space);
         const xs = onsets.map((o) => o.x);
         const start = m.firstInSystem ? null : m.x0 + pad * st.space;
+        // 連桁・旗の本数から読んだ音価 (16分 = 1 スロット)
+        const beams = onsets.map((o) => {
+          const bs = o.notes.map((n) => n.beams).filter((b) => b != null);
+          return bs.length ? Math.max(...bs) : null;
+        });
+        const has32 = beams.some((b) => b >= 3);
         let measureSlots = slots;
         let tickPerSlot = slotTicks;
-        if (xs.length > slots) {
+        if (has32 || xs.length > slots) {
           measureSlots = slots * 2; // 32分音符
           tickPerSlot = slotTicks / 2;
         }
-        const assigned = assignSlots(xs, { start, end: m.x1 }, measureSlots, (measureSlots / slots) * slotsPerBeat, st.space);
+        const perQuarter = (measureSlots / slots) * 4; // 4分音符あたりのスロット数 (16分 = 1)
+        const values = onsets.map((o, i) => {
+          if (beams[i] == null) return null;
+          const open = o.notes.every((n) => n.kind === 'open');
+          if (beams[i] === 0) return open ? null : perQuarter;
+          const v = perQuarter / 2 ** beams[i];
+          return Number.isInteger(v) && v >= 1 ? v : null;
+        });
+        const assigned = assignSlots(xs, { start, end: m.x1 }, measureSlots, (measureSlots / slots) * slotsPerBeat, st.space, values);
         const notes = [];
         onsets.forEach((o, i) => {
           for (const h of o.notes) {

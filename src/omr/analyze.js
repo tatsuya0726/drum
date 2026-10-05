@@ -13,87 +13,150 @@ export function toBinary(rgba, width, height, threshold = 170) {
   return bin;
 }
 
-/** 各行の最長の黒ラン(2px までの途切れは許容)を求める */
-function longestRuns(bin, w, h) {
-  const len = new Int32Array(h);
-  const start = new Int32Array(h);
+/** 各行の長い黒ラン (2px までの途切れは許容) をすべて返す */
+function rowRuns(bin, w, h, minRun) {
+  const rows = [];
   for (let y = 0; y < h; y++) {
     const row = y * w;
-    let best = 0, bestStart = 0, cur = 0, curStart = 0, gap = 0;
+    const runs = [];
+    let cur = 0, curStart = 0, gap = 0;
+    const close = () => {
+      if (cur >= minRun) runs.push([curStart, curStart + cur - 1]);
+      cur = 0;
+      gap = 0;
+    };
     for (let x = 0; x < w; x++) {
       if (bin[row + x]) {
         if (cur === 0) curStart = x;
         cur += gap + 1;
         gap = 0;
-        if (cur > best) {
-          best = cur;
-          bestStart = curStart;
-        }
       } else if (cur > 0) {
         gap++;
-        if (gap > 2) {
-          cur = 0;
-          gap = 0;
-        }
+        if (gap > 2) close();
       }
     }
-    len[y] = best;
-    start[y] = bestStart;
+    close();
+    rows.push(runs);
   }
-  return { len, start };
+  return rows;
 }
 
-/** 五線を検出する */
+const overlap = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+
+/**
+ * 五線を検出する。1行に複数の五線が左右に並ぶページ (教本の 2 列レイアウトなど) にも対応。
+ * 返す順番は読む順 (段が左右に並ぶ列構成なら左の列から上→下、それ以外は上→下)
+ */
 export function findStaves(bin, w, h) {
-  const { len, start } = longestRuns(bin, w, h);
-  const minRun = Math.max(40, w * 0.15);
+  const minRun = Math.max(40, w * 0.1);
+  const rows = rowRuns(bin, w, h, minRun);
+
+  // 縦に連続する同じ範囲のランを1本の線にまとめる
   const lines = [];
+  let open = [];
   for (let y = 0; y < h; y++) {
-    if (len[y] < minRun) continue;
-    const last = lines[lines.length - 1];
-    if (last && last.y1 === y - 1) {
-      last.y1 = y;
-      last.x0 = Math.min(last.x0, start[y]);
-      last.x1 = Math.max(last.x1, start[y] + len[y] - 1);
-    } else {
-      lines.push({ y0: y, y1: y, x0: start[y], x1: start[y] + len[y] - 1 });
+    const next = [];
+    for (const [x0, x1] of rows[y]) {
+      const prev = open.find((l) => l.y1 === y - 1 && overlap(l.x0, l.x1, x0, x1) > Math.max(x1 - x0, l.x1 - l.x0) * 0.8);
+      if (prev) {
+        prev.y1 = y;
+        prev.x0 = Math.min(prev.x0, x0);
+        prev.x1 = Math.max(prev.x1, x1);
+        next.push(prev);
+      } else {
+        const l = { y0: y, y1: y, x0, x1 };
+        lines.push(l);
+        next.push(l);
+      }
     }
+    open = next;
   }
   for (const l of lines) {
     l.yc = (l.y0 + l.y1) / 2;
     l.t = l.y1 - l.y0 + 1;
   }
+  lines.sort((a, b) => a.yc - b.yc);
 
+  // 横の範囲がそろっていて等間隔な 5 本を 1 つの五線にする
+  const used = new Set();
   const staves = [];
-  let i = 0;
-  while (i + 4 < lines.length) {
-    const group = lines.slice(i, i + 5);
-    const gaps = [];
-    for (let k = 0; k < 4; k++) gaps.push(group[k + 1].yc - group[k].yc);
-    const mean = gaps.reduce((a, b) => a + b, 0) / 4;
-    const thick = Math.max(...group.map((l) => l.t));
-    const ok =
-      mean > thick * 2 + 2 &&
-      mean < h / 8 &&
-      gaps.every((g) => Math.abs(g - mean) <= Math.max(1.5, mean * 0.2)) &&
-      group.every((l) => Math.abs(l.x0 - group[0].x0) < mean * 3 && Math.abs(l.x1 - group[0].x1) < mean * 3);
-    if (!ok) {
-      i++;
-      continue;
+  for (let i = 0; i < lines.length; i++) {
+    if (used.has(i)) continue;
+    const first = lines[i];
+    const len = first.x1 - first.x0;
+    const group = [i];
+    for (let j = i + 1; j < lines.length && group.length < 5; j++) {
+      if (used.has(j)) continue;
+      const l = lines[j];
+      if (overlap(first.x0, first.x1, l.x0, l.x1) < Math.max(len, l.x1 - l.x0) * 0.9) continue;
+      const lastL = lines[group[group.length - 1]];
+      const gap = l.yc - lastL.yc;
+      if (group.length >= 2) {
+        const g0 = lines[group[1]].yc - lines[group[0]].yc;
+        if (Math.abs(gap - g0) > Math.max(1.5, g0 * 0.2)) {
+          if (gap > g0 * 1.5) break;
+          continue;
+        }
+      } else if (gap > h / 8) break;
+      group.push(j);
     }
+    if (group.length < 5) continue;
+    const g = group.map((k) => lines[k]);
+    const gaps = [];
+    for (let k = 0; k < 4; k++) gaps.push(g[k + 1].yc - g[k].yc);
+    const mean = gaps.reduce((a, b) => a + b, 0) / 4;
+    const thick = Math.max(...g.map((l) => l.t));
+    if (mean <= thick * 2 + 2) continue;
+    for (const k of group) used.add(k);
     const sorted = (arr) => [...arr].sort((a, b) => a - b);
     staves.push({
-      lines: group.map((l) => l.yc),
-      top: group[0].yc,
-      bottom: group[4].yc,
+      lines: g.map((l) => l.yc),
+      top: g[0].yc,
+      bottom: g[4].yc,
       space: mean,
-      thickness: group.reduce((a, l) => a + l.t, 0) / 5,
-      left: sorted(group.map((l) => l.x0))[2],
-      right: sorted(group.map((l) => l.x1))[2],
+      thickness: g.reduce((a, l) => a + l.t, 0) / 5,
+      left: sorted(g.map((l) => l.x0))[2],
+      right: sorted(g.map((l) => l.x1))[2],
     });
-    i += 5;
   }
-  return staves;
+  return readingOrder(staves, w);
+}
+
+/** 段が左右の列に分かれて並んでいれば列ごとに、そうでなければ上から順に並べる */
+function readingOrder(staves, w) {
+  const byY = [...staves].sort((a, b) => a.top - b.top || a.left - b.left);
+  const sideBySide = staves.some((a) => staves.some((b) => a !== b && overlap(a.top, a.bottom, b.top, b.bottom) > 0 && (a.right < b.left || b.right < a.left)));
+  if (!sideBySide) return byY;
+  // 左端の位置で列に分ける
+  const cols = [];
+  for (const s of [...staves].sort((a, b) => a.left - b.left)) {
+    const c = cols.find((col) => Math.abs(col.left - s.left) < w * 0.15 || overlap(col.left, col.right, s.left, s.right) > (s.right - s.left) * 0.5);
+    if (c) {
+      c.items.push(s);
+      c.right = Math.max(c.right, s.right);
+    } else cols.push({ left: s.left, right: s.right, items: [s] });
+  }
+  if (cols.some((c) => c.items.length < 2)) return byY;
+  return cols.flatMap((c) => c.items.sort((a, b) => a.top - b.top));
+}
+
+/** 縦線のすぐ左右に符頭のような塊があるか (上向き符幹が五線全体にかかって小節線に見える場合を除く) */
+function headBeside(bin, w, staff, x0, x1) {
+  const { top, bottom, space, thickness, lines } = staff;
+  const onLine = (y) => lines.some((ly) => Math.abs(y - ly) <= thickness / 2 + 1);
+  const width = Math.round(space * 0.8);
+  for (const [a, b] of [
+    [x0 - width, x0 - 2],
+    [x1 + 2, x1 + width],
+  ]) {
+    let dark = 0;
+    for (let y = Math.round(top); y <= Math.round(bottom); y++) {
+      if (onLine(y)) continue;
+      for (let x = Math.max(0, a); x <= Math.min(w - 1, b); x++) dark += bin[y * w + x];
+    }
+    if (dark > space * space * 0.45) return true;
+  }
+  return false;
 }
 
 /** 小節線を検出する (五線の上端から下端までを貫き、五線の外にははみ出さない細い縦線) */
@@ -126,7 +189,7 @@ export function findBarlines(bin, w, h, staff) {
     } else if (runStart >= 0) {
       const x0 = runStart + Math.max(0, left - 2);
       const x1 = k - 1 + Math.max(0, left - 2);
-      if (x1 - x0 + 1 <= space * 0.8) bars.push({ x0, x1 });
+      if (x1 - x0 + 1 <= space * 0.8 && !headBeside(bin, w, staff, x0, x1)) bars.push({ x0, x1 });
       runStart = -1;
     }
   }
@@ -209,12 +272,21 @@ export function cleanStaffRegion(bin, w, h, staff) {
 
   // 2) 細い縦線 (符幹・小節線) を除去
   r = runLengths(clean, w, rx0, ry0, rx1, ry1);
-  const stemMin = space * 1.8;
+  const stemMin = space * 1.0;
   const stemWidth = Math.max(2, space * 0.3);
   for (let y = 0; y < r.rh; y++) {
     for (let x = 0; x < r.rw; x++) {
       const k = y * r.rw + x;
       if (r.vrun[k] >= stemMin && r.hrun[k] <= stemWidth) clean[(y + ry0) * w + x + rx0] = 0;
+    }
+  }
+
+  // 3) 長い横棒 (連桁) を除去。連桁にくっついた × 符頭を切り離すため
+  r = runLengths(clean, w, rx0, ry0, rx1, ry1);
+  const beamMin = space * 2.8;
+  for (let y = 0; y < r.rh; y++) {
+    for (let x = 0; x < r.rw; x++) {
+      if (r.hrun[y * r.rw + x] >= beamMin) clean[(y + ry0) * w + x + rx0] = 0;
     }
   }
   return { clean, noLines, region };
@@ -286,6 +358,10 @@ export function classifyHead(img, w, box, lenient = false) {
   const cy = (y0 + y1) / 2;
   const centerDark = darkIn(img, w, cx - bw * 0.12, cy - bh * 0.12, cx + bw * 0.12, cy + bh * 0.12);
   if (centerDark >= 0.5) {
+    // × 符頭は上下の中央 (腕と腕のあいだ) が白い。符幹の切れ端で黒が多くても × とみなす
+    const topMid = darkIn(img, w, cx - bw * 0.1, y0, cx + bw * 0.1, y0 + bh * 0.2);
+    const botMid = darkIn(img, w, cx - bw * 0.1, y1 - bh * 0.2, cx + bw * 0.1, y1);
+    if (fill >= 0.45 && topMid < 0.25 && botMid < 0.25) return 'x';
     if (fill >= 0.6) {
       // 楕円なら四隅は空いている (連桁の切れ端などの平行四辺形を除外)
       const q = 0.22;
@@ -365,10 +441,11 @@ export function findHeads(clean, w, staff, region, withStems = null) {
   }
   // 全音符以外は符幹があるはず (休符の切れ端などを除外)
   if (!withStems) return heads;
-  return heads.filter((hd) => {
+  const kept = heads.filter((hd) => {
     if (hd.kind === 'open') return true;
     const stem = findStem(withStems, w, hd, space);
     if (!stem) return false;
+    hd.stem = stem;
     // 下向きの符幹の先にある旗は × に見えることがある:
     // 五線より下の × で、上に同じ符幹の黒玉があり、符幹がこの下でほとんど終わっているなら旗とみなす
     if (hd.kind === 'x' && hd.step >= 9) {
@@ -379,6 +456,51 @@ export function findHeads(clean, w, staff, region, withStems = null) {
     }
     return true;
   });
+  // 連桁・旗の本数 (8分=1, 16分=2, 32分=3) を数える
+  for (const hd of kept) {
+    if (!hd.stem) continue;
+    const st = hd.stem;
+    // 同じ符幹につながる符頭 (和音)。× 符頭は符幹の検出位置が少しずれるので、符頭の幅で判定する
+    const onStem = kept.filter((o) => o === hd || (o.x0 - 3 <= st.x && o.x1 + 3 >= st.x && o.y0 <= st.bottom + 2 && o.y1 >= st.top - 2));
+    hd.beams = countBeams(withStems, w, hd.stem, onStem, space);
+    delete hd.stem;
+  }
+  return kept;
+}
+
+/**
+ * 符幹の先 (符頭と反対側) にある連桁・旗の本数を数える。
+ * 符幹の左右に少しずらした縦の線に沿って、太い横線を何本横切るかを見る
+ */
+export function countBeams(img, w, stem, heads, space) {
+  const ys = heads.map((o) => o.y);
+  const headTop = Math.min(...heads.map((o) => o.y0));
+  const headBottom = Math.max(...heads.map((o) => o.y1));
+  const up = stem.top < headTop - space * 0.5 && headTop - stem.top >= stem.bottom - headBottom; // 符頭が下、符幹が上へ
+  const minRun = Math.max(2, Math.round(space * 0.28));
+  const maxRun = space * 1.0;
+  let best = 0;
+  for (const dx of [-0.35, 0.35, -0.6, 0.6]) {
+    const x = Math.round(stem.x + dx * space);
+    if (x < 0 || x >= w) continue;
+    let count = 0;
+    let run = 0;
+    const from = up ? stem.top - 1 : stem.bottom + 1;
+    const limit = space * 2.4;
+    const stop = up ? Math.min(stem.top + limit, headTop - space * 0.4) : Math.max(stem.bottom - limit, headBottom + space * 0.4);
+    const step = up ? 1 : -1;
+    for (let y = from; up ? y <= stop : y >= stop; y += step) {
+      if (img[y * w + x]) run++;
+      else {
+        if (run >= minRun && run <= maxRun) count++;
+        run = 0;
+      }
+    }
+    if (run >= minRun && run <= maxRun) count++;
+    best = Math.max(best, count);
+  }
+  void ys;
+  return Math.min(4, best);
 }
 
 /** 符頭の左右どちらかの端から縦にまっすぐ伸びる線 (符幹) を探す。{ x, top, bottom } か null */
@@ -387,8 +509,9 @@ export function findStem(img, w, hd, space) {
   const reach = Math.max(2, Math.round(space * 0.25));
   const h = img.length / w;
   let best = null;
-  for (const edge of [hd.x0, hd.x1]) {
-    for (let x = Math.round(edge) - reach; x <= Math.round(edge) + reach; x++) {
+  // 符幹は普通は符頭の左右の端にあるが、符頭と符幹の切れ端が一緒になって幅が広がることがあるので、幅全体を探す
+  {
+    for (let x = Math.round(hd.x0) - reach; x <= Math.round(hd.x1) + reach; x++) {
       if (x < 0 || x >= w) continue;
       for (const start of [Math.round(hd.y0), Math.round(hd.y), Math.round(hd.y1)]) {
         if (!img[start * w + x]) continue;

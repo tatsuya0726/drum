@@ -1,0 +1,82 @@
+{
+ "A": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": "x...x...x...x...",
+  "snare": "....x.......x..."
+ },
+ "B": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": ".x...x...x...x..",
+  "snare": "....x.......x..."
+ },
+ "C": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": "..x...x...x...x.",
+  "snare": "....x.......x..."
+ },
+ "D": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": "...x...x...x...x",
+  "snare": "....x.......x..."
+ },
+ "E": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": "xx..xx..xx..xx..",
+  "snare": "....x.......x..."
+ },
+ "F": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": "x.x.x.x.x.x.x.x.",
+  "snare": "....x.......x..."
+ },
+ "G": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": "x..xx..xx..xx..x",
+  "snare": "....x.......x..."
+ },
+ "H": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": ".xx..xx..xx..xx.",
+  "snare": "....x.......x..."
+ },
+ "I": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": ".x.x.x.x.x.x.x.x",
+  "snare": "....x.......x..."
+ },
+ "J": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": "..xx..xx..xx..xx",
+  "snare": "....x.......x..."
+ },
+ "K": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": "xxx.xxx.xxx.xxx.",
+  "snare": "....x.......x..."
+ },
+ "L": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": "xx.xxx.xxx.xxx.x",
+  "snare": "....x.......x..."
+ },
+ "M": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": "x.xxx.xxx.xxx.xx",
+  "snare": "....x.......x..."
+ },
+ "N": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": ".xxx.xxx.xxx.xxx",
+  "snare": "....x.......x..."
+ },
+ "O": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": "xxxxxxxxxxxxxxxx",
+  "snare": "....x.......x..."
+ },
+ "P": {
+  "hhc": "x.x.x.x.x.x.x.x.",
+  "kick": "x.x.x.x.x.x.x.x.",
+  "snare": "....x.......x..."
+ }
+}
