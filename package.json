@@ -1,0 +1,21 @@
+{
+  "name": "drum-practice",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^4.10.38"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.1",
+    "pngjs": "^7.0.0",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}

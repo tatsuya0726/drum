@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ドラム練習プレイヤー</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥁</text></svg>" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>🥁 ドラム練習プレイヤー</h1>
+      <div class="toolbar">
+        <label class="btn primary">
+          PDFを開く
+          <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
+        </label>
+        <select id="sample-select" aria-label="サンプル">
+          <option value="">サンプルを開く…</option>
+          <option value="samples/groove.pdf">Sample Groove (8ビート)</option>
+          <option value="samples/funk.pdf">Funk Exercise (16ビート)</option>
+        </select>
+        <button id="new-btn" class="btn">空の譜面</button>
+        <button id="export-btn" class="btn" disabled>保存(JSON)</button>
+        <label class="btn">
+          読込(JSON)
+          <input id="import-input" type="file" accept="application/json,.json" hidden />
+        </label>
+      </div>
+    </header>
+
+    <section class="transport" aria-label="再生コントロール">
+      <div class="group">
+        <button id="play-btn" class="btn play" title="再生 / 一時停止 (Space)" disabled>▶</button>
+        <button id="stop-btn" class="btn" title="停止して先頭へ" disabled>■</button>
+        <div class="position" id="position">--</div>
+      </div>
+
+      <div class="group tempo">
+        <span class="label">テンポ</span>
+        <button class="btn small" data-tempo="-5">−5</button>
+        <button class="btn small" data-tempo="-1">−1</button>
+        <input id="tempo-range" type="range" min="30" max="300" value="100" aria-label="テンポ" />
+        <button class="btn small" data-tempo="1">+1</button>
+        <button class="btn small" data-tempo="5">+5</button>
+        <input id="tempo-input" type="number" min="30" max="300" value="100" aria-label="BPM" />
+        <span class="label">BPM</span>
+        <span class="ratio" id="tempo-ratio"></span>
+        <span class="presets">
+          <button class="btn small" data-ratio="0.5">50%</button>
+          <button class="btn small" data-ratio="0.75">75%</button>
+          <button class="btn small" data-ratio="1">100%</button>
+        </span>
+      </div>
+
+      <div class="group loop">
+        <label class="check"><input id="loop-check" type="checkbox" /> ループ</label>
+        <span class="label">小節</span>
+        <input id="loop-start" type="number" min="1" value="1" aria-label="ループ開始小節" />
+        <span>〜</span>
+        <input id="loop-end" type="number" min="1" value="1" aria-label="ループ終了小節" />
+        <label class="check" title="ループするたびにテンポを上げる">
+          <input id="tempo-up-check" type="checkbox" /> 毎回
+          <input id="tempo-up-step" type="number" min="1" max="20" value="2" aria-label="上げ幅" />BPM上げる (最大
+          <input id="tempo-up-max" type="number" min="30" max="300" value="160" aria-label="最大テンポ" />)
+        </label>
+      </div>
+
+      <div class="group">
+        <label class="check"><input id="metro-check" type="checkbox" checked /> メトロノーム</label>
+        <label class="check"><input id="countin-check" type="checkbox" /> カウントイン</label>
+        <label class="check"><input id="follow-check" type="checkbox" checked /> 自動スクロール</label>
+        <span class="label">音量</span>
+        <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="音量" />
+      </div>
+    </section>
+
+    <main class="layout">
+      <section class="score-pane" id="score-pane">
+        <div class="empty" id="empty-state">
+          <p class="big">ドラム譜の PDF をここにドロップ</p>
+          <p>または上の「PDFを開く」から選択してください。<br />まずは「サンプルを開く」で動作を試せます。</p>
+          <ul class="tips">
+            <li>楽譜ソフト (MuseScore・Finale・Sibelius・LilyPond など) から書き出した 5線のドラム譜に対応しています。</li>
+            <li>小節をクリックで選択、<b>ドラッグ</b>または<b>Shift+クリック</b>でループ範囲を指定できます。</li>
+            <li>自動認識はベータ版です。誤認識は右の編集グリッドで直せます (編集内容はブラウザに自動保存)。</li>
+          </ul>
+        </div>
+        <div id="pages"></div>
+        <div class="busy hidden" id="busy"><div class="spinner"></div><span id="busy-text">認識中…</span></div>
+      </section>
+
+      <aside class="side-pane">
+        <div class="card">
+          <div class="card-head">
+            <h2>小節</h2>
+            <span class="muted" id="score-title"></span>
+          </div>
+          <div class="strip" id="strip"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2 id="editor-title">編集</h2>
+            <div class="row">
+              <button class="btn small" id="prev-measure" title="前の小節 (←)">◀</button>
+              <button class="btn small" id="next-measure" title="次の小節 (→)">▶</button>
+            </div>
+          </div>
+          <div class="row wrap editor-tools">
+            <label>グリッド <select id="grid-select"></select></label>
+            <button class="btn small" id="copy-btn">コピー</button>
+            <button class="btn small" id="paste-btn" disabled>貼り付け</button>
+            <button class="btn small" id="clear-btn">クリア</button>
+            <button class="btn small" id="add-measure-btn" title="選択小節の後ろに追加">小節を追加</button>
+            <button class="btn small danger" id="del-measure-btn">小節を削除</button>
+          </div>
+          <div id="editor"></div>
+          <p class="hint">セルをクリックで音符の追加/削除。楽器名クリックで試聴、🔊でミュート (自分で叩くパートを消して練習できます)。</p>
+        </div>
+
+        <details class="card" id="settings">
+          <summary><h2>認識の設定</h2></summary>
+          <div class="row wrap">
+            <label>拍子
+              <select id="timesig-select">
+                <option value="4/4">4/4</option>
+                <option value="3/4">3/4</option>
+                <option value="2/4">2/4</option>
+                <option value="5/4">5/4</option>
+                <option value="6/8">6/8</option>
+                <option value="12/8">12/8</option>
+              </select>
+            </label>
+            <button class="btn small" id="reanalyze-btn">PDFを認識し直す</button>
+            <label class="check"><input id="show-heads" type="checkbox" checked /> 認識した音符を楽譜上に表示</label>
+          </div>
+          <p class="hint">楽譜によって楽器の書き方 (五線上の位置) が違います。下の対応表で直すと全小節に反映されます。</p>
+          <div id="mapping"></div>
+        </details>
+      </aside>
+    </main>
+
+    <div class="toast hidden" id="toast"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
