@@ -25,19 +25,32 @@
       <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5L6 9H3v6h3l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
       <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5zM14 3v5h5M12 18v-6M9 15l3-3 3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
       <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+      <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" fill="none" stroke="currentColor" stroke-width="2" /></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
       <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
     </svg>
 
     <header class="appbar">
-      <div class="brand">
+      <button class="brand" id="home-btn" title="ホーム">
         <span class="logo">🥁</span>
         <span class="brand-name">Drum Practice</span>
-      </div>
+      </button>
       <div class="doc" id="doc">
+        <input class="doc-title-input hidden" id="doc-title-input" aria-label="譜面の名前" />
         <span class="doc-title" id="doc-title"></span>
         <span class="doc-meta" id="doc-meta"></span>
       </div>
       <div class="appbar-actions">
+        <button class="btn btn-accent hidden" id="to-editor-btn" title="読み取った譜面を作成モードで直す">
+          <svg class="ic"><use href="#i-edit" /></svg><span class="hide-sm">この譜面を編集</span>
+        </button>
+        <button class="btn btn-ghost" id="new-btn" title="新しく作る">
+          <svg class="ic"><use href="#i-plus" /></svg><span class="hide-sm">新規作成</span>
+        </button>
         <label class="btn btn-ghost" title="PDF を開く">
           <svg class="ic"><use href="#i-file" /></svg><span class="hide-sm">PDFを開く</span>
           <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
@@ -51,15 +64,26 @@
     <main class="viewer" id="viewer">
       <section class="welcome" id="welcome">
         <div class="hero">
-          <h1>ドラム譜の PDF を、<br />そのまま練習トラックに。</h1>
-          <p class="lead">楽譜を読み込むと自動で音符を認識して、生ドラムの音で再生します。テンポを落としたり、苦手な小節だけループしたり。</p>
+          <h1>ドラム譜を、<br />そのまま練習トラックに。</h1>
+          <p class="lead">マス目で打ち込むか PDF を読み込むと、楽譜と生ドラムの音で再生します。テンポを落としたり、苦手な小節だけループしたり。</p>
         </div>
-        <label class="dropzone" id="dropzone">
+        <div class="start">
+          <button class="start-card create" id="create-btn">
+            <span class="dz-icon"><svg class="ic"><use href="#i-plus" /></svg></span>
+            <span class="dz-title">新しく譜面を作る</span>
+            <span class="dz-sub">マス目をクリックして入力。楽譜が自動で描かれて、その通りに鳴ります</span>
+          </button>
+        <label class="dropzone start-card" id="dropzone">
           <input id="file-input-2" type="file" accept="application/pdf,.pdf" hidden />
           <span class="dz-icon"><svg class="ic"><use href="#i-file" /></svg></span>
           <span class="dz-title">PDF をドロップ、またはクリックして選択</span>
-          <span class="dz-sub">MuseScore・Finale・Sibelius などから書き出した 5 線のドラム譜</span>
+          <span class="dz-sub">5線のドラム譜を自動で読み取ります (ベータ)。読み取った譜面は作成モードで直せます</span>
         </label>
+        </div>
+        <div class="library hidden" id="library">
+          <span class="samples-label">保存した譜面</span>
+          <div class="library-list" id="library-list"></div>
+        </div>
         <div class="samples">
           <span class="samples-label">サンプルで試す</span>
           <button class="sample-card" data-sample="samples/groove.pdf">
@@ -78,6 +102,37 @@
         </ul>
       </section>
       <div class="pages" id="pages"></div>
+      <section class="editor-view hidden" id="editor-view">
+        <div class="paper">
+          <div class="notation" id="notation"></div>
+          <div class="overlay" id="notation-overlay"></div>
+        </div>
+        <div class="grid-panel" id="grid-panel">
+          <div class="grid-toolbar">
+            <div class="grid-title"><b id="grid-measure">1小節目</b></div>
+            <div class="tool-group">
+              <label class="select-wrap" title="マス目の細かさ">マス目 <select id="grid-select"></select></label>
+              <label class="select-wrap" title="拍子">拍子
+                <select id="doc-timesig">
+                  <option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option>
+                  <option value="5/4">5/4</option><option value="6/8">6/8</option><option value="12/8">12/8</option>
+                </select>
+              </label>
+            </div>
+            <div class="tool-group">
+              <button class="tool" id="undo-btn" title="元に戻す (Ctrl+Z)"><svg class="ic"><use href="#i-undo" /></svg></button>
+              <button class="tool" id="redo-btn" title="やり直す (Ctrl+Shift+Z)"><svg class="ic"><use href="#i-redo" /></svg></button>
+              <button class="tool" id="copy-btn" title="小節をコピー (Ctrl+C)"><svg class="ic"><use href="#i-copy" /></svg></button>
+              <button class="tool text" id="paste-btn" title="貼り付け (Ctrl+V)" disabled>貼り付け</button>
+              <button class="tool text" id="dup-btn" title="この小節を複製して後ろに追加">複製</button>
+              <button class="tool text" id="add-btn" title="空の小節を後ろに追加">＋小節</button>
+              <button class="tool" id="clear-btn" title="この小節を空にする">クリア</button>
+              <button class="tool danger" id="del-btn" title="この小節を削除"><svg class="ic"><use href="#i-trash" /></svg></button>
+            </div>
+          </div>
+          <div id="grid"></div>
+        </div>
+      </section>
       <div class="loading hidden" id="loading">
         <div class="spinner"></div>
         <span id="loading-text">読み込み中…</span>
@@ -170,8 +225,8 @@
           </label>
         </section>
 
-        <section>
-          <h3>譜面の認識</h3>
+        <section id="recognition-section">
+          <h3>譜面の認識 (PDF)</h3>
           <div class="row">
             <span>拍子</span>
             <select id="timesig-select">

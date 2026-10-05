@@ -55,7 +55,8 @@ export function assignSlots(xs, m, slots, slotsPerBeat, space) {
   const gaps = [];
   for (let i = 0; i < n; i++) gaps.push(Math.max(space * 0.3, (i + 1 < n ? xs[i + 1] : m.end + space * 0.55) - xs[i]));
   const lead = m.start == null ? 0 : xs[0] - m.start;
-  const allowLeadRest = m.start != null && lead > space * 1.2;
+  // 音が1つだけの小節 (全音符など) は中央寄りに書かれることがあるので、よほど離れていなければ1拍目とみなす
+  const allowLeadRest = m.start != null && lead > space * (n === 1 ? 4 : 1.2);
 
   const logGaps = gaps.map((g) => Math.log(g));
   const leadLog = allowLeadRest ? Math.log(lead) : 0;
