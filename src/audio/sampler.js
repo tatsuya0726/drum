@@ -1,27 +1,29 @@
-// 生ドラムのサンプル音源 (Virtuosity Drums / CC0)。読み込み前や失敗時は合成音で鳴らす。
+// 生ドラムのサンプル音源 (Virtuosity Drums / CC0、メタル用バスドラムのみ BJA Pacific / CC BY-SA 3.0 US)。読み込み前や失敗時は合成音で鳴らす。
 
-const BASE = 'sounds/virtuosity/';
+const BASE = 'sounds/';
 
 // 楽器ごとのファイル・音量 (dB)・再生速度 (ピッチ)
 const KIT = {
-  kick: { file: 'kick-mid', gain: -1 },
-  snare: { file: 'snare', gain: -2 },
-  rim: { file: 'rim', gain: 0 },
-  hhc: { file: 'hhc', gain: 7 },
-  hho: { file: 'hho', gain: 5 },
-  hhp: { file: 'hhp', gain: 10 },
-  tom1: { file: 'tom1', gain: 0 },
-  tom2: { file: 'tom3', gain: 0, rate: 1.19 }, // ロータムの音を少し高くしてミドルタムに
-  tom3: { file: 'tom3', gain: 0 },
-  ride: { file: 'ride', gain: 6 },
-  crash: { file: 'crash', gain: 2 },
+  kick: { file: 'virtuosity/kick-mid', gain: -1 },
+  snare: { file: 'virtuosity/snare', gain: -2 },
+  rim: { file: 'virtuosity/rim', gain: 0 },
+  hhc: { file: 'virtuosity/hhc', gain: 7 },
+  hho: { file: 'virtuosity/hho', gain: 5 },
+  hhp: { file: 'virtuosity/hhp', gain: 10 },
+  tom1: { file: 'virtuosity/tom1', gain: 0 },
+  tom2: { file: 'virtuosity/tom3', gain: 0, rate: 1.19 }, // ロータムの音を少し高くしてミドルタムに
+  tom3: { file: 'virtuosity/tom3', gain: 0 },
+  ride: { file: 'virtuosity/ride', gain: 6 },
+  crash: { file: 'virtuosity/crash', gain: 2 },
 };
 const VARIANTS = 2;
 
-// バスドラムの音色: 'mid' はスマホのスピーカーでも聞こえるように中音域を強調した音、'natural' は録音そのまま
+// バスドラムの音色: 'mid' はスマホのスピーカーでも聞こえるように中音域を強調した音、'natural' は録音そのまま、
+// 'metal' は BJA Pacific キット (CC BY-SA 3.0 US) のタイトでアタックの強い音
 const KICK_TONES = {
-  mid: { file: 'kick-mid', gain: -1 },
-  natural: { file: 'kick', gain: 0 },
+  mid: { file: 'virtuosity/kick-mid', gain: -1 },
+  metal: { file: 'bja-pacific/kick-metal', gain: -1 },
+  natural: { file: 'virtuosity/kick', gain: 0 },
 };
 const ALL_FILES = new Set([...Object.values(KIT).map((k) => k.file), ...Object.values(KICK_TONES).map((k) => k.file)]);
 

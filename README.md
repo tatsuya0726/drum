@@ -71,7 +71,8 @@ src/
 `public/sounds/virtuosity/` は Versilian Studios / Karoryfer Lecolds の
 [Virtuosity Drums](https://github.com/sfzinstruments/virtuosity_drums) (CC0 1.0) から
 楽器ごとに 2 テイクずつ抜き出し、キック・スネア・オーバーヘッドの各マイクをミックスして MP3 にしたものです
-(合計 約 860KB)。バスドラムはスマホのスピーカーでも聞こえるよう中音域を強調した版も用意しています。詳細は同フォルダの README.md を参照してください。
+(合計 約 860KB)。バスドラムはスマホのスピーカーでも聞こえるよう中音域を強調した版も用意しています。
+メタル向けのバスドラムは `public/sounds/bja-pacific/` (BJA Pacific drumkit を EQ 加工、CC BY-SA 3.0 US) で、設定パネルの「バスドラムの音色」で選べます。詳細は同フォルダの README.md を参照してください。
 
 ## 公開 (GitHub Pages)
 
