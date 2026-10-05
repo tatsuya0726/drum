@@ -2,143 +2,209 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ドラム練習プレイヤー</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f1115" />
+    <title>Drum Practice</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥁</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
-    <header class="topbar">
-      <h1>🥁 ドラム練習プレイヤー</h1>
-      <div class="toolbar">
-        <label class="btn primary">
-          PDFを開く
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" fill="currentColor" /></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.2" fill="currentColor" /><rect x="14" y="5" width="4" height="14" rx="1.2" fill="currentColor" /></symbol>
+      <symbol id="i-prev" viewBox="0 0 24 24"><path d="M6 6v12M18 6.5v11a.8.8 0 0 1-1.25.66L9 12.66a.8.8 0 0 1 0-1.32l7.75-5.5A.8.8 0 0 1 18 6.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="M18 6v12M6 6.5v11a.8.8 0 0 0 1.25.66L15 12.66a.8.8 0 0 0 0-1.32L7.25 5.84A.8.8 0 0 0 6 6.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+      <symbol id="i-loop" viewBox="0 0 24 24"><path d="M17 2l3 3-3 3M3 11V9a4 4 0 0 1 4-4h13M7 22l-3-3 3-3M21 13v2a4 4 0 0 1-4 4H4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+      <symbol id="i-metro" viewBox="0 0 24 24"><path d="M9 3h6l4 18H5L9 3zM12 15l5-9M7.5 15h9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></symbol>
+      <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5L6 9H3v6h3l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5zM14 3v5h5M12 18v-6M9 15l3-3 3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></symbol>
+      <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+    </svg>
+
+    <header class="appbar">
+      <div class="brand">
+        <span class="logo">🥁</span>
+        <span class="brand-name">Drum Practice</span>
+      </div>
+      <div class="doc" id="doc">
+        <span class="doc-title" id="doc-title"></span>
+        <span class="doc-meta" id="doc-meta"></span>
+      </div>
+      <div class="appbar-actions">
+        <label class="btn btn-ghost" title="PDF を開く">
+          <svg class="ic"><use href="#i-file" /></svg><span class="hide-sm">PDFを開く</span>
           <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
         </label>
-        <select id="sample-select" aria-label="サンプル">
-          <option value="">サンプルを開く…</option>
-          <option value="samples/groove.pdf">Sample Groove (8ビート)</option>
-          <option value="samples/funk.pdf">Funk Exercise (16ビート)</option>
-        </select>
-        <button id="new-btn" class="btn">空の譜面</button>
-        <button id="export-btn" class="btn" disabled>保存(JSON)</button>
-        <label class="btn">
-          読込(JSON)
-          <input id="import-input" type="file" accept="application/json,.json" hidden />
-        </label>
+        <button class="icon-btn" id="settings-btn" title="ミキサーと設定" aria-label="ミキサーと設定">
+          <svg class="ic"><use href="#i-sliders" /></svg>
+        </button>
       </div>
     </header>
 
-    <section class="transport" aria-label="再生コントロール">
-      <div class="group">
-        <button id="play-btn" class="btn play" title="再生 / 一時停止 (Space)" disabled>▶</button>
-        <button id="stop-btn" class="btn" title="停止して先頭へ" disabled>■</button>
-        <div class="position" id="position">--</div>
-      </div>
-
-      <div class="group tempo">
-        <span class="label">テンポ</span>
-        <button class="btn small" data-tempo="-5">−5</button>
-        <button class="btn small" data-tempo="-1">−1</button>
-        <input id="tempo-range" type="range" min="30" max="300" value="100" aria-label="テンポ" />
-        <button class="btn small" data-tempo="1">+1</button>
-        <button class="btn small" data-tempo="5">+5</button>
-        <input id="tempo-input" type="number" min="30" max="300" value="100" aria-label="BPM" />
-        <span class="label">BPM</span>
-        <span class="ratio" id="tempo-ratio"></span>
-        <span class="presets">
-          <button class="btn small" data-ratio="0.5">50%</button>
-          <button class="btn small" data-ratio="0.75">75%</button>
-          <button class="btn small" data-ratio="1">100%</button>
-        </span>
-      </div>
-
-      <div class="group loop">
-        <label class="check"><input id="loop-check" type="checkbox" /> ループ</label>
-        <span class="label">小節</span>
-        <input id="loop-start" type="number" min="1" value="1" aria-label="ループ開始小節" />
-        <span>〜</span>
-        <input id="loop-end" type="number" min="1" value="1" aria-label="ループ終了小節" />
-        <label class="check" title="ループするたびにテンポを上げる">
-          <input id="tempo-up-check" type="checkbox" /> 毎回
-          <input id="tempo-up-step" type="number" min="1" max="20" value="2" aria-label="上げ幅" />BPM上げる (最大
-          <input id="tempo-up-max" type="number" min="30" max="300" value="160" aria-label="最大テンポ" />)
+    <main class="viewer" id="viewer">
+      <section class="welcome" id="welcome">
+        <div class="hero">
+          <h1>ドラム譜の PDF を、<br />そのまま練習トラックに。</h1>
+          <p class="lead">楽譜を読み込むと自動で音符を認識して、生ドラムの音で再生します。テンポを落としたり、苦手な小節だけループしたり。</p>
+        </div>
+        <label class="dropzone" id="dropzone">
+          <input id="file-input-2" type="file" accept="application/pdf,.pdf" hidden />
+          <span class="dz-icon"><svg class="ic"><use href="#i-file" /></svg></span>
+          <span class="dz-title">PDF をドロップ、またはクリックして選択</span>
+          <span class="dz-sub">MuseScore・Finale・Sibelius などから書き出した 5 線のドラム譜</span>
         </label>
-      </div>
-
-      <div class="group">
-        <label class="check"><input id="metro-check" type="checkbox" checked /> メトロノーム</label>
-        <label class="check"><input id="countin-check" type="checkbox" /> カウントイン</label>
-        <label class="check"><input id="follow-check" type="checkbox" checked /> 自動スクロール</label>
-        <span class="label">音量</span>
-        <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="音量" />
-      </div>
-    </section>
-
-    <main class="layout">
-      <section class="score-pane" id="score-pane">
-        <div class="empty" id="empty-state">
-          <p class="big">ドラム譜の PDF をここにドロップ</p>
-          <p>または上の「PDFを開く」から選択してください。<br />まずは「サンプルを開く」で動作を試せます。</p>
-          <ul class="tips">
-            <li>楽譜ソフト (MuseScore・Finale・Sibelius・LilyPond など) から書き出した 5線のドラム譜に対応しています。</li>
-            <li>小節をクリックで選択、<b>ドラッグ</b>または<b>Shift+クリック</b>でループ範囲を指定できます。</li>
-            <li>自動認識はベータ版です。誤認識は右の編集グリッドで直せます (編集内容はブラウザに自動保存)。</li>
-          </ul>
+        <div class="samples">
+          <span class="samples-label">サンプルで試す</span>
+          <button class="sample-card" data-sample="samples/groove.pdf">
+            <span class="sample-icon"><svg class="ic"><use href="#i-music" /></svg></span>
+            <span><b>Sample Groove</b><small>8ビート · ♩=100</small></span>
+          </button>
+          <button class="sample-card" data-sample="samples/funk.pdf">
+            <span class="sample-icon"><svg class="ic"><use href="#i-music" /></svg></span>
+            <span><b>Funk Exercise</b><small>16ビート · ♩=92</small></span>
+          </button>
         </div>
-        <div id="pages"></div>
-        <div class="busy hidden" id="busy"><div class="spinner"></div><span id="busy-text">認識中…</span></div>
+        <ul class="features">
+          <li><b>テンポ変更</b>30〜300 BPM、50% / 75% ワンタッチ</li>
+          <li><b>区間ループ</b>楽譜上をドラッグして範囲指定</li>
+          <li><b>マイナスワン</b>自分のパートだけミュート</li>
+        </ul>
       </section>
+      <div class="pages" id="pages"></div>
+      <div class="loading hidden" id="loading">
+        <div class="spinner"></div>
+        <span id="loading-text">読み込み中…</span>
+      </div>
+    </main>
 
-      <aside class="side-pane">
-        <div class="card">
-          <div class="card-head">
-            <h2>小節</h2>
-            <span class="muted" id="score-title"></span>
+    <footer class="player disabled" id="player">
+      <div class="progress" id="progress"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="player-inner">
+        <div class="transport">
+          <button class="icon-btn" id="prev-btn" title="前の小節 (←)" aria-label="前の小節"><svg class="ic"><use href="#i-prev" /></svg></button>
+          <button class="play-btn" id="play-btn" title="再生 / 一時停止 (Space)" aria-label="再生">
+            <svg class="ic" id="play-icon"><use href="#i-play" /></svg>
+          </button>
+          <button class="icon-btn" id="next-btn" title="次の小節 (→)" aria-label="次の小節"><svg class="ic"><use href="#i-next" /></svg></button>
+          <div class="position">
+            <div class="pos-main"><span id="pos-measure">–</span><span class="pos-total" id="pos-total"></span></div>
+            <div class="beats" id="beats"></div>
           </div>
-          <div class="strip" id="strip"></div>
         </div>
 
-        <div class="card">
-          <div class="card-head">
-            <h2 id="editor-title">編集</h2>
-            <div class="row">
-              <button class="btn small" id="prev-measure" title="前の小節 (←)">◀</button>
-              <button class="btn small" id="next-measure" title="次の小節 (→)">▶</button>
+        <div class="tempo">
+          <button class="round-btn" data-tempo="-5" aria-label="テンポを下げる">−</button>
+          <div class="tempo-display">
+            <div class="tempo-value"><input id="tempo-input" type="number" min="30" max="300" value="100" aria-label="BPM" /><span>BPM</span></div>
+            <input id="tempo-range" type="range" min="30" max="300" value="100" aria-label="テンポ" />
+            <div class="tempo-presets">
+              <button data-ratio="0.5">50%</button>
+              <button data-ratio="0.75">75%</button>
+              <button data-ratio="1">100%</button>
+              <span class="tempo-ratio" id="tempo-ratio"></span>
             </div>
           </div>
-          <div class="row wrap editor-tools">
-            <label>グリッド <select id="grid-select"></select></label>
-            <button class="btn small" id="copy-btn">コピー</button>
-            <button class="btn small" id="paste-btn" disabled>貼り付け</button>
-            <button class="btn small" id="clear-btn">クリア</button>
-            <button class="btn small" id="add-measure-btn" title="選択小節の後ろに追加">小節を追加</button>
-            <button class="btn small danger" id="del-measure-btn">小節を削除</button>
-          </div>
-          <div id="editor"></div>
-          <p class="hint">セルをクリックで音符の追加/削除。楽器名クリックで試聴、🔊でミュート (自分で叩くパートを消して練習できます)。</p>
+          <button class="round-btn" data-tempo="5" aria-label="テンポを上げる">+</button>
         </div>
 
-        <details class="card" id="settings">
-          <summary><h2>認識の設定</h2></summary>
-          <div class="row wrap">
-            <label>拍子
-              <select id="timesig-select">
-                <option value="4/4">4/4</option>
-                <option value="3/4">3/4</option>
-                <option value="2/4">2/4</option>
-                <option value="5/4">5/4</option>
-                <option value="6/8">6/8</option>
-                <option value="12/8">12/8</option>
-              </select>
-            </label>
-            <button class="btn small" id="reanalyze-btn">PDFを認識し直す</button>
-            <label class="check"><input id="show-heads" type="checkbox" checked /> 認識した音符を楽譜上に表示</label>
+        <div class="toggles">
+          <button class="chip" id="loop-btn" title="ループ (L)。楽譜上をドラッグで範囲指定" aria-pressed="false">
+            <svg class="ic"><use href="#i-loop" /></svg><span id="loop-label">ループ</span>
+          </button>
+          <button class="chip" id="metro-btn" title="メトロノーム" aria-pressed="true">
+            <svg class="ic"><use href="#i-metro" /></svg><span>クリック</span>
+          </button>
+          <div class="volume">
+            <svg class="ic"><use href="#i-volume" /></svg>
+            <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="音量" />
           </div>
-          <p class="hint">楽譜によって楽器の書き方 (五線上の位置) が違います。下の対応表で直すと全小節に反映されます。</p>
-          <div id="mapping"></div>
-        </details>
-      </aside>
-    </main>
+        </div>
+      </div>
+    </footer>
+
+    <div class="scrim hidden" id="scrim"></div>
+    <aside class="panel" id="panel" aria-hidden="true">
+      <div class="panel-head">
+        <h2>ミキサーと設定</h2>
+        <button class="icon-btn" id="panel-close" aria-label="閉じる"><svg class="ic"><use href="#i-close" /></svg></button>
+      </div>
+      <div class="panel-body">
+        <section>
+          <h3>ミキサー</h3>
+          <p class="note">自分が叩くパートをミュートすると、マイナスワン練習ができます。楽器名をタップで試聴。</p>
+          <div id="mixer" class="mixer"></div>
+        </section>
+
+        <section>
+          <h3>練習</h3>
+          <label class="row switch-row">
+            <span>カウントイン (1小節)</span>
+            <input type="checkbox" class="switch" id="countin-check" />
+          </label>
+          <label class="row switch-row">
+            <span>ループのたびにテンポを上げる</span>
+            <input type="checkbox" class="switch" id="tempo-up-check" />
+          </label>
+          <div class="row sub-row">
+            <span>上げ幅</span>
+            <span><input id="tempo-up-step" type="number" min="1" max="20" value="2" /> BPM</span>
+          </div>
+          <div class="row sub-row">
+            <span>最大テンポ</span>
+            <span><input id="tempo-up-max" type="number" min="30" max="300" value="160" /> BPM</span>
+          </div>
+          <div class="row">
+            <span>クリックの音量</span>
+            <input id="click-volume" type="range" min="0" max="1" step="0.01" value="0.6" />
+          </div>
+          <label class="row switch-row">
+            <span>再生位置に合わせてスクロール</span>
+            <input type="checkbox" class="switch" id="follow-check" checked />
+          </label>
+        </section>
+
+        <section>
+          <h3>譜面の認識</h3>
+          <div class="row">
+            <span>拍子</span>
+            <select id="timesig-select">
+              <option value="4/4">4/4</option>
+              <option value="3/4">3/4</option>
+              <option value="2/4">2/4</option>
+              <option value="5/4">5/4</option>
+              <option value="6/8">6/8</option>
+              <option value="12/8">12/8</option>
+            </select>
+          </div>
+          <label class="row switch-row">
+            <span>認識した音符を楽譜に表示</span>
+            <input type="checkbox" class="switch" id="show-heads" />
+          </label>
+          <details class="mapping-details">
+            <summary>楽器の割り当て</summary>
+            <p class="note">楽譜によって楽器の書き方が違います。違う音が鳴るときはここで直してください。</p>
+            <div id="mapping"></div>
+          </details>
+        </section>
+
+        <section class="credits">
+          <h3>クレジット</h3>
+          <p class="note">
+            ドラム音源: <a href="https://github.com/sfzinstruments/virtuosity_drums" target="_blank" rel="noopener">Virtuosity Drums</a>
+            (Versilian Studios / Karoryfer Lecolds, CC0)<br />
+            自動認識はベータ版です。PDF はこの端末の中だけで処理され、どこにも送信されません。
+          </p>
+          <p class="note keys">Space 再生/停止 · ← → 小節移動 · ↑ ↓ テンポ · L ループ</p>
+        </section>
+      </div>
+    </aside>
 
     <div class="toast hidden" id="toast"></div>
     <script type="module" src="/src/main.js"></script>
