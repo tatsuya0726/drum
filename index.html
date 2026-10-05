@@ -195,10 +195,14 @@
           <h3>ミキサー</h3>
           <p class="note">自分が叩くパートをミュートすると、マイナスワン練習ができます。楽器名をタップで試聴。</p>
           <div id="mixer" class="mixer"></div>
-          <label class="row switch-row">
-            <span>バスドラムをスマホでも聞こえやすく<br /><small class="note">中音域を強調した音にします (オフで録音そのままの低音)</small></span>
-            <input type="checkbox" class="switch" id="kick-mid-check" checked />
-          </label>
+          <div class="row">
+            <span>バスドラムの音色</span>
+            <select id="kick-tone">
+              <option value="mid">スマホ向け (中域寄り)</option>
+              <option value="metal">メタル (アタック強め・タイト)</option>
+              <option value="natural">録音そのまま (低音)</option>
+            </select>
+          </div>
         </section>
 
         <section>
@@ -258,6 +262,7 @@
           <p class="note">
             ドラム音源: <a href="https://github.com/sfzinstruments/virtuosity_drums" target="_blank" rel="noopener">Virtuosity Drums</a>
             (Versilian Studios / Karoryfer Lecolds, CC0)<br />
+            メタル用バスドラム: BJA Pacific drumkit (Bransin James Anderson / Luc Tanguay, <a href="https://creativecommons.org/licenses/by-sa/3.0/us/" target="_blank" rel="noopener">CC BY-SA 3.0 US</a>) を EQ 加工<br />
             自動認識はベータ版です。PDF はこの端末の中だけで処理され、どこにも送信されません。
           </p>
           <p class="note keys">Space 再生/停止 · ← → 小節移動 · ↑ ↓ テンポ · L ループ</p>

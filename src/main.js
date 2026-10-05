@@ -94,9 +94,9 @@ function loadMixer() {
     if (m) {
       seq.mutes = new Set(m.mutes ?? []);
       player.levels = m.levels ?? {};
-      if (m.kickTone) $('kick-mid-check').checked = m.kickTone === 'mid';
+      if (m.kickTone) $('kick-tone').value = m.kickTone;
     }
-    player.kickTone = $('kick-mid-check').checked ? 'mid' : 'natural';
+    player.kickTone = $('kick-tone').value;
   } catch {
     // 無視
   }
@@ -106,7 +106,7 @@ function saveMixer() {
   try {
     localStorage.setItem(
       MIXER_KEY,
-      JSON.stringify({ mutes: [...seq.mutes], levels: player.levels, kickTone: $('kick-mid-check').checked ? 'mid' : 'natural' }),
+      JSON.stringify({ mutes: [...seq.mutes], levels: player.levels, kickTone: $('kick-tone').value }),
     );
   } catch {
     // 無視
@@ -855,8 +855,8 @@ $('mixer').addEventListener('click', (e) => {
     saveMixer();
   }
 });
-$('kick-mid-check').addEventListener('change', (e) => {
-  player.kickTone = e.target.checked ? 'mid' : 'natural';
+$('kick-tone').addEventListener('change', (e) => {
+  player.kickTone = e.target.value;
   player.preview('kick');
   saveMixer();
 });
