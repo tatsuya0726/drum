@@ -4,7 +4,7 @@ const BASE = 'sounds/virtuosity/';
 
 // 楽器ごとのファイル・音量 (dB)・再生速度 (ピッチ)
 const KIT = {
-  kick: { file: 'kick', gain: 0 },
+  kick: { file: 'kick-mid', gain: -1 },
   snare: { file: 'snare', gain: -2 },
   rim: { file: 'rim', gain: 0 },
   hhc: { file: 'hhc', gain: 7 },
@@ -17,6 +17,13 @@ const KIT = {
   crash: { file: 'crash', gain: 2 },
 };
 const VARIANTS = 2;
+
+// バスドラムの音色: 'mid' はスマホのスピーカーでも聞こえるように中音域を強調した音、'natural' は録音そのまま
+const KICK_TONES = {
+  mid: { file: 'kick-mid', gain: -1 },
+  natural: { file: 'kick', gain: 0 },
+};
+const ALL_FILES = new Set([...Object.values(KIT).map((k) => k.file), ...Object.values(KICK_TONES).map((k) => k.file)]);
 
 /** MP3 の先頭の無音 (エンコーダ遅延) を取り除く */
 function trimLeadingSilence(ctx, buf) {
@@ -41,9 +48,8 @@ export class SampleKit {
   }
 
   async load() {
-    const files = new Set(Object.values(KIT).map((k) => k.file));
     await Promise.all(
-      [...files].flatMap((file) =>
+      [...ALL_FILES].flatMap((file) =>
         Array.from({ length: VARIANTS }, async (_, i) => {
           const url = new URL(`${BASE}${file}-${i + 1}.mp3`, document.baseURI);
           const res = await fetch(url);
@@ -54,6 +60,10 @@ export class SampleKit {
       ),
     );
     return true;
+  }
+
+  setKickTone(tone) {
+    KIT.kick = { ...(KICK_TONES[tone] ?? KICK_TONES.mid) };
   }
 
   has(inst) {

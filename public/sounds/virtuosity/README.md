@@ -18,3 +18,10 @@ Versilian Studios / Karoryfer Lecolds による「Virtuosity Drums」から一�
 | tom3-1/2 | ltom_center_vl11/vl14 |
 | ride-1/2 | ride_ride_vl2_rr1/rr2 |
 | crash-1/2 | crash_crash_vl3_rr1/rr2 |
+
+## スマホ向けバスドラム (kick-mid-1/2)
+
+スマホのスピーカーは 100Hz 以下がほとんど鳴らないため、kick-1/2 の元ミックスに
+倍音付加 (tanh ソフトクリップ)・60Hz 付近のカット・250Hz / 1.2kHz / 3.5kHz の持ち上げを行い、
+150Hz〜5kHz 帯の音量を約 10dB 上げたものです。設定パネルの
+「バスドラムをスマホでも聞こえやすく」(初期値オン) で切り替えられます。
