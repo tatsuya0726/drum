@@ -317,11 +317,13 @@ export function classifyHead(img, w, box, lenient = false) {
   for (let y = y0; y < cy; y++) u += img[y * w + midCol];
   for (let y = Math.ceil(cy); y <= y1; y++) d += img[y * w + midCol];
   if (l && rr && u && d && fill < 0.75) return 'open';
+  // 全音符: 上下の縁が五線と重なって消えていることがあるので、横長で左右の縁があれば白玉とみなす
+  if (l && rr && (u || d) && bw >= bh * 1.4 && fill >= 0.3 && fill < 0.75) return 'open';
   return null;
 }
 
 /** 1つの五線について符頭を検出する */
-export function findHeads(clean, w, staff, region) {
+export function findHeads(clean, w, staff, region, withStems = null) {
   const { space, top } = staff;
   const comps = mergeHalves(components(clean, w, region), space);
   const heads = [];
@@ -361,7 +363,45 @@ export function findHeads(clean, w, staff, region) {
       }
     }
   }
-  return heads;
+  // 全音符以外は符幹があるはず (休符の切れ端などを除外)
+  if (!withStems) return heads;
+  return heads.filter((hd) => {
+    if (hd.kind === 'open') return true;
+    const stem = findStem(withStems, w, hd, space);
+    if (!stem) return false;
+    // 下向きの符幹の先にある旗は × に見えることがある:
+    // 五線より下の × で、上に同じ符幹の黒玉があり、符幹がこの下でほとんど終わっているなら旗とみなす
+    if (hd.kind === 'x' && hd.step >= 9) {
+      const headAbove = heads.some(
+        (o) => o !== hd && o.kind === 'filled' && o.x0 - 2 <= stem.x && o.x1 + 2 >= stem.x && o.y >= stem.top && hd.y - o.y >= space * 1.1,
+      );
+      if (headAbove && stem.bottom - hd.y1 < space * 1.8) return false;
+    }
+    return true;
+  });
+}
+
+/** 符頭の左右どちらかの端から縦にまっすぐ伸びる線 (符幹) を探す。{ x, top, bottom } か null */
+export function findStem(img, w, hd, space) {
+  const need = space * 1.5 + (hd.y1 - hd.y0) * 0.5;
+  const reach = Math.max(2, Math.round(space * 0.25));
+  const h = img.length / w;
+  let best = null;
+  for (const edge of [hd.x0, hd.x1]) {
+    for (let x = Math.round(edge) - reach; x <= Math.round(edge) + reach; x++) {
+      if (x < 0 || x >= w) continue;
+      for (const start of [Math.round(hd.y0), Math.round(hd.y), Math.round(hd.y1)]) {
+        if (!img[start * w + x]) continue;
+        let up = start;
+        while (up > 0 && img[(up - 1) * w + x]) up--;
+        let down = start;
+        while (down < h - 1 && img[(down + 1) * w + x]) down++;
+        const len = down - up + 1;
+        if (len >= need && (!best || len > best.bottom - best.top + 1)) best = { x, top: up, bottom: down };
+      }
+    }
+  }
+  return best;
 }
 
 /** 五線と重なって上下の縁が消えた全音符 (左右2つに割れた塊) をまとめる */
@@ -524,7 +564,7 @@ export function analyzePage(rgba, width, height) {
     const comps = components(noLines, width, region);
     const firstBar = bars.length ? bars[0].x : staff.right;
     const hEnd = headerEnd(comps, staff, firstBar);
-    const heads = findHeads(clean, width, staff, region).filter((hd) => hd.x > hEnd);
+    const heads = findHeads(clean, width, staff, region, noLines).filter((hd) => hd.x > hEnd);
 
     // 小節の区切り
     const bounds = [];
