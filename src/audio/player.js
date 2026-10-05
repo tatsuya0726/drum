@@ -27,6 +27,7 @@ export class Player {
       this.synth = new DrumSynth(this.ctx);
       this.synth.volume = this._volume ?? 0.8;
       this.kit = new SampleKit(this.ctx, this.synth.drumBus);
+      this.kit.setKickTone(this._kickTone ?? 'mid');
       this.kit.ready.catch((err) => console.warn('サンプル音源を読み込めませんでした。合成音で再生します', err));
     }
   }
@@ -40,6 +41,11 @@ export class Player {
   resume() {
     this.ensureContext();
     if (this.ctx.state === 'suspended') this.ctx.resume();
+  }
+
+  set kickTone(tone) {
+    this._kickTone = tone;
+    this.kit?.setKickTone(tone);
   }
 
   set clickVolume(v) {
