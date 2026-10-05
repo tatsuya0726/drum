@@ -33,7 +33,7 @@ export function saveDoc(doc) {
   doc.updatedAt = Date.now();
   const ok = write(DOC_PREFIX + doc.id, doc);
   const index = read(INDEX_KEY, []).filter((d) => d.id !== doc.id);
-  index.push({ id: doc.id, title: doc.title, updatedAt: doc.updatedAt, measures: doc.measures.length, bpm: doc.bpm });
+  index.push({ id: doc.id, title: doc.title, updatedAt: doc.updatedAt, measures: doc.measures.length, bpm: doc.bpm, group: doc.group });
   write(INDEX_KEY, index);
   return ok;
 }
@@ -55,9 +55,10 @@ export function newId() {
 }
 
 /** 譜面データから保存用のドキュメントを作る (PDF の位置情報などは捨てる) */
-export function makeDoc({ title, timeSig, bpm, measures }) {
+export function makeDoc({ title, timeSig, bpm, measures, group }) {
   return {
     id: newId(),
+    group: group || undefined,
     title: title || '新しい譜面',
     timeSig: { ...timeSig },
     bpm: bpm ?? 100,

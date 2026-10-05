@@ -107,3 +107,32 @@ describe('scoreTake', () => {
     expect(estimateLatency(clicks, hits)).toBeCloseTo(0.09, 3);
   });
 });
+
+import { makePack, parsePack, patternsToMeasures } from '../src/game/pack.js';
+
+describe('phrase packs', () => {
+  it('converts pattern strings to measures', () => {
+    const m = patternsToMeasures({ snare: 'x.x.x.x.x.x.x.x.|xxxxxxxxxxxxxxxx', kick: 'x.......x.......' });
+    expect(m).toHaveLength(2);
+    expect(m[0].notes.filter((n) => n.inst === 'snare').map((n) => n.tick)).toEqual([0, 24, 48, 72, 96, 120, 144, 168]);
+    expect(m[1].notes).toHaveLength(16);
+    expect(m[0].grid).toBe(4);
+  });
+
+  it('supports triplet grids', () => {
+    const m = patternsToMeasures({ snare: 'x.xx.xx.xx.x' });
+    expect(m[0].grid).toBe(3);
+    expect(m[0].notes.map((n) => n.tick)).toEqual([0, 32, 48, 80, 96, 128, 144, 176]);
+  });
+
+  it('round-trips a pack', () => {
+    const phrases = parsePack({ format: 'drum-level-up-phrases', version: 1, name: 'Book', phrases: [{ title: 'Ex 1', bpm: 80, patterns: { snare: 'x.x.x.x.x.x.x.x.' } }] });
+    expect(phrases[0]).toMatchObject({ title: 'Ex 1', group: 'Book', bpm: 80 });
+    const again = parsePack(makePack('Book', phrases));
+    expect(again[0].measures).toEqual(phrases[0].measures);
+  });
+
+  it('rejects other files', () => {
+    expect(() => parsePack({ hello: 1 })).toThrow();
+  });
+});

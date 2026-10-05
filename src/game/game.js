@@ -8,6 +8,7 @@ import { detectOnsets } from './onsets.js';
 import { estimateLatency, rankOf, scoreTake, starsOf } from './scoring.js';
 import { allStats, deleteTake, levelOf, listTakes, saveTake, xpOf } from './takes.js';
 import { deleteDoc, listDocs, loadDoc, makeDoc, saveDoc } from '../library.js';
+import { parsePack } from './pack.js';
 
 const $ = (id) => document.getElementById(id);
 const PREFS_KEY = 'drum-practice:game-prefs';
@@ -57,7 +58,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   // ------------------------------------------------------------ フレーズの取得
 
   function allPhrases() {
-    const mine = listDocs().map((d) => ({ id: d.id, title: d.title, mine: true, category: 'mine', level: null, bpm: d.bpm }));
+    const mine = listDocs().map((d) => ({ id: d.id, title: d.title, mine: true, category: 'mine', group: d.group, level: null, bpm: d.bpm }));
     return { mine, presets: PRESETS };
   }
 
@@ -100,7 +101,13 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       for (const p of items) grid.appendChild(phraseCard(p, stats.phrases[p.id]));
       root.appendChild(sec);
     };
-    if (mine.length) section('マイフレーズ', mine);
+    // 取り込んだフレーズ集はグループごと、それ以外はマイフレーズ
+    const own = mine.filter((p) => !p.group);
+    if (own.length) section('マイフレーズ', own);
+    const groups = [...new Set(mine.filter((p) => p.group).map((p) => p.group))].sort();
+    for (const name of groups) {
+      section(name, mine.filter((p) => p.group === name).sort((a, b) => a.title.localeCompare(b.title, 'ja', { numeric: true })));
+    }
     for (const c of CATEGORIES) section(c.name, presets.filter((p) => p.category === c.id));
   }
 
@@ -121,6 +128,20 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       ${p.mine ? `<button class="icon-btn pc-del" data-del-phrase="${esc(p.id)}" title="削除" aria-label="削除"><svg class="ic"><use href="#i-trash" /></svg></button>` : ''}`;
     return card;
   }
+
+  $('pack-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const phrases = parsePack(await file.text());
+      for (const p of phrases) saveDoc(makeDoc(p));
+      renderHub();
+      toast(`${phrases.length}個のフレーズを取り込みました`, 4000);
+    } catch (err) {
+      toast(`読み込めませんでした: ${err.message}`, 6000);
+    }
+  });
 
   $('phrase-sections').addEventListener('click', (e) => {
     const del = e.target.closest('[data-del-phrase]');
