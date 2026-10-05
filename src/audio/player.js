@@ -1,4 +1,5 @@
 import { DrumSynth } from './synth.js';
+import { SampleKit } from './sampler.js';
 import { Sequencer } from './sequencer.js';
 
 const LOOKAHEAD = 0.12; // 秒
@@ -16,6 +17,7 @@ export class Player {
     this.countIn = false;
     this.onEnd = null;
     this.onTempo = null;
+    this.levels = {}; // 楽器ごとの音量 (0..1)
     this.seq.onLoop = (bpm) => this.onTempo?.(bpm);
   }
 
@@ -24,8 +26,32 @@ export class Player {
       this.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
       this.synth = new DrumSynth(this.ctx);
       this.synth.volume = this._volume ?? 0.8;
+      this.kit = new SampleKit(this.ctx, this.synth.drumBus);
+      this.kit.ready.catch((err) => console.warn('サンプル音源を読み込めませんでした。合成音で再生します', err));
     }
+  }
+
+  /** 音源の読み込みを始める (ユーザー操作の前に呼んでよい) */
+  preload() {
+    this.ensureContext();
+    return this.kit.ready.catch(() => false);
+  }
+
+  resume() {
+    this.ensureContext();
     if (this.ctx.state === 'suspended') this.ctx.resume();
+  }
+
+  set clickVolume(v) {
+    this._click = v;
+    if (this.synth) this.synth.clickVolume = v;
+  }
+
+  hit(inst, t, vel) {
+    const level = this.levels[inst] ?? 1;
+    if (level <= 0) return;
+    if (this.kit?.has(inst)) this.kit.play(inst, t, vel, level);
+    else this.synth.play(inst, t, vel * level);
   }
 
   set volume(v) {
@@ -38,7 +64,7 @@ export class Player {
   }
 
   play(fromMeasure) {
-    this.ensureContext();
+    this.resume();
     const loop = this.seq.loop;
     let start = fromMeasure;
     if (loop.enabled && (start < loop.start || start > loop.end)) start = loop.start;
@@ -62,7 +88,7 @@ export class Player {
     if (!this.playing) return;
     const events = this.seq.advance(this.ctx.currentTime + LOOKAHEAD);
     for (const e of events) {
-      if (e.type === 'note') this.synth.play(e.inst, e.time, e.vel);
+      if (e.type === 'note') this.hit(e.inst, e.time, e.vel);
       else if (e.type === 'click') this.synth.click(e.time, e.accent);
       if (e.type === 'pos' || e.type === 'click' || e.type === 'end') this.markers.push(e);
     }
@@ -91,9 +117,9 @@ export class Player {
     return { measure: cur.measure, tick: cur.tick };
   }
 
-  /** 楽器を1回鳴らす (エディタでの試聴用) */
+  /** 楽器を1回鳴らす (試聴用) */
   preview(inst) {
-    this.ensureContext();
-    this.synth.play(inst, this.ctx.currentTime + 0.01, 1);
+    this.resume();
+    this.hit(inst, this.ctx.currentTime + 0.01, 1);
   }
 }
