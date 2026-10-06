@@ -963,7 +963,7 @@ export function classifyRL(bin, w, c) {
     // R は上の丸の中が空いていて、真ん中あたりに縦棒から右へ横棒が通る (「0」や「1」と区別する)
     if (fillOf(0.35, 0.6, 0.12, 0.3) > 0.35) return null;
     // 上は横棒で閉じている (「H」は上が開いている)
-    if (fillOf(0.35, 0.6, 0, 0.15) < 0.2) return null;
+    if (fillOf(0.35, 0.6, 0, 0.15) < 0.12) return null;
     let bar = false;
     for (let y = c.y0 + Math.floor(rows * 0.3); y <= c.y0 + Math.ceil(rows * 0.6); y++) {
       let k = 0;
@@ -1039,7 +1039,7 @@ export function analyzePage(rgba, width, height) {
       if (tripletMarks.some((t) => Math.abs(hd.x - t.x) < staff.space * 0.7 && Math.abs(hd.y - t.y) < staff.space * 0.9)) heads.splice(i, 1);
     }
     // 手順の文字は音符の真下 (真上) にある。近くに符頭のないもの (題名などの文字) は除き、3 つ以上並んだものだけ使う
-    let stickMarks = findStickings(bin, width, height, staff, staves).filter((t) => heads.some((hd) => Math.abs(hd.x - t.x) < staff.space * 1.2));
+    let stickMarks = findStickings(soft, width, height, staff, staves).filter((t) => heads.some((hd) => Math.abs(hd.x - t.x) < staff.space * 1.2));
     // 手順は段の上か下の 1 列に書かれるので、一番多く並んだ列だけ使う
     const rowOf = (a) => stickMarks.filter((b) => Math.abs(b.y - a.y) < staff.space * 0.6);
     const best = stickMarks.reduce((acc, a) => (rowOf(a).length > acc.length ? rowOf(a) : acc), []);
