@@ -80,6 +80,25 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
 
   // ------------------------------------------------------------ ハブ (ホーム)
 
+  // ホームで選んでいるタブと難易度 (次に開いたときも同じ画面にする)
+  const HUB_KEY = 'drum-practice:hub';
+  const hub = (() => {
+    try {
+      return { tab: null, level: 0, ...JSON.parse(localStorage.getItem(HUB_KEY)) };
+    } catch {
+      return { tab: null, level: 0 };
+    }
+  })();
+  function setHub(patch) {
+    Object.assign(hub, patch);
+    try {
+      localStorage.setItem(HUB_KEY, JSON.stringify(hub));
+    } catch {
+      // 無視
+    }
+    renderHub();
+  }
+
   const OPEN_GROUPS_KEY = 'drum-practice:open-groups';
   const openGroups = new Set(
     (() => {
@@ -104,22 +123,52 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     const root = $('phrase-sections');
     root.innerHTML = '';
     const { mine, presets } = allPhrases();
-    const section = (title, items, note) => {
+    const own = mine.filter((p) => !p.group);
+    const imported = mine.filter((p) => p.group);
+
+    // 種類ごとのタブ (基本ビート・16ビート…・マイフレーズ・取り込んだ教本)
+    const tabs = CATEGORIES.map((c) => ({ id: c.id, name: c.name, items: presets.filter((p) => p.category === c.id) }));
+    if (own.length) tabs.push({ id: 'mine', name: 'マイフレーズ', items: own });
+    if (imported.length) tabs.push({ id: 'books', name: '教本', items: imported });
+    if (!tabs.some((t) => t.id === hub.tab)) hub.tab = tabs[0].id;
+    const tab = tabs.find((t) => t.id === hub.tab);
+
+    const bar = document.createElement('div');
+    bar.className = 'hub-tabs';
+    bar.setAttribute('role', 'tablist');
+    bar.innerHTML = tabs
+      .map((t) => `<button role="tab" data-hub-tab="${t.id}" aria-selected="${t.id === tab.id}">${esc(t.name)}<small>${t.items.length}</small></button>`)
+      .join('');
+    root.appendChild(bar);
+    const sel = bar.querySelector('[aria-selected="true"]');
+    bar.scrollLeft = Math.max(0, sel.offsetLeft - (bar.clientWidth - sel.offsetWidth) / 2);
+
+    // 難易度のしぼり込み (レベルのあるフレーズだけ)
+    const levels = [...new Set(tab.items.map((p) => p.level).filter(Boolean))].sort((a, b) => a - b);
+    if (levels.length > 1) {
+      if (hub.level && !levels.includes(hub.level)) hub.level = 0;
+      const lvBar = document.createElement('div');
+      lvBar.className = 'hub-levels';
+      lvBar.innerHTML = [0, ...levels]
+        .map((l) => `<button data-hub-level="${l}" aria-pressed="${l === hub.level}">${l ? `Lv${l}` : 'すべて'}</button>`)
+        .join('');
+      root.appendChild(lvBar);
+    }
+
+    if (tab.id === 'books') {
+      const groups = [...new Set(imported.map((p) => p.group))].sort();
+      for (const name of groups) {
+        groupSection(name, imported.filter((p) => p.group === name).sort((a, b) => a.title.localeCompare(b.title, 'ja', { numeric: true })), stats);
+      }
+    } else {
+      const items = levels.length > 1 && hub.level ? tab.items.filter((p) => p.level === hub.level) : tab.items;
       const sec = document.createElement('section');
       sec.className = 'phrase-section';
-      sec.innerHTML = `<h3>${esc(title)}</h3>${note ? `<p class="note">${note}</p>` : ''}<div class="phrase-grid"></div>`;
+      sec.innerHTML = '<div class="phrase-grid"></div>';
       const grid = sec.querySelector('.phrase-grid');
       for (const p of items) grid.appendChild(phraseCard(p, stats.phrases[p.id]));
       root.appendChild(sec);
-    };
-    // 取り込んだフレーズ集はグループごと、それ以外はマイフレーズ
-    const own = mine.filter((p) => !p.group);
-    if (own.length) section('マイフレーズ', own);
-    const groups = [...new Set(mine.filter((p) => p.group).map((p) => p.group))].sort();
-    for (const name of groups) {
-      groupSection(name, mine.filter((p) => p.group === name).sort((a, b) => a.title.localeCompare(b.title, 'ja', { numeric: true })), stats);
     }
-    for (const c of CATEGORIES) section(c.name, presets.filter((p) => p.category === c.id));
   }
 
   // 取り込んだフレーズ集は数が多いので折りたたみ、開いたときにカードを作る
@@ -183,6 +232,16 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   });
 
   $('phrase-sections').addEventListener('click', (e) => {
+    const tabBtn = e.target.closest('[data-hub-tab]');
+    if (tabBtn) {
+      setHub({ tab: tabBtn.dataset.hubTab, level: 0 });
+      return;
+    }
+    const lvBtn = e.target.closest('[data-hub-level]');
+    if (lvBtn) {
+      setHub({ level: Number(lvBtn.dataset.hubLevel) });
+      return;
+    }
     const delGroup = e.target.closest('[data-del-group]');
     if (delGroup) {
       e.preventDefault();
