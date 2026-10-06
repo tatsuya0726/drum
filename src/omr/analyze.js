@@ -836,6 +836,7 @@ export function findStickings(bin, w, h, staff, others = []) {
   const rx0 = Math.max(0, Math.floor(left));
   const rx1 = Math.min(w - 1, Math.ceil(right));
   const found = [];
+  const unknownAll = [];
   for (const [ya, yb] of [
     [bottom + space * 0.4, bottom + space * 7],
     [top - space * 7, top - space * 0.4],
@@ -853,7 +854,10 @@ export function findStickings(bin, w, h, staff, others = []) {
       const dist = (st) => Math.max(0, st.top - cy, cy - st.bottom);
       if (others.some((o) => o !== staff && cx >= o.left && cx <= o.right && dist(o) < dist(staff))) continue;
       const hand = classifyRL(bin, w, c);
-      if (!hand) continue;
+      if (!hand) {
+        unknownAll.push({ x: cx, y: cy });
+        continue;
+      }
       // 単語の一部 (すぐ隣に R / L 以外の文字がある) なら手順ではない
       const inWord = comps.some(
         (o) => o !== c && o.y1 > c.y0 && o.y0 < c.y1 && (Math.abs(o.x0 - c.x1) < space * 0.35 || Math.abs(c.x0 - o.x1) < space * 0.35) && !classifyRL(bin, w, o),
@@ -861,8 +865,47 @@ export function findStickings(bin, w, h, staff, others = []) {
       if (!inWord) found.push({ hand, x0: c.x0, x1: c.x1, x: cx, y: cy });
     }
   }
-  // 同じ高さに 3 つ以上並んだものだけ残す
-  return found.filter((a) => found.filter((b) => Math.abs(b.y - a.y) < space * 0.6).length >= 3);
+  // 同じ高さに 3 つ以上並んだものだけ残す。読めない文字が多く混ざる列 (知らない字体など) は信用しない
+  return found.filter((a) => {
+    const row = found.filter((b) => Math.abs(b.y - a.y) < space * 0.6).length;
+    const bad = unknownAll.filter((b) => Math.abs(b.y - a.y) < space * 0.6).length;
+    return row >= 3 && bad <= row * 0.15;
+  });
+}
+
+/** 部品の上 60% に、外とつながっていない白い部分 (輪の中) があるか */
+function upperHole(bin, w, c) {
+  const W = c.w + 2;
+  const H = c.h + 2;
+  const seen = new Uint8Array(W * H);
+  const isDark = (x, y) => x >= 1 && y >= 1 && x <= c.w && y <= c.h && bin[(c.y0 + y - 1) * w + c.x0 + x - 1];
+  const stack = [0];
+  seen[0] = 1;
+  while (stack.length) {
+    const p = stack.pop();
+    const x = p % W;
+    const y = (p / W) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const q = ny * W + nx;
+      if (seen[q] || isDark(nx, ny)) continue;
+      seen[q] = 1;
+      stack.push(q);
+    }
+  }
+  let holes = 0;
+  let sumY = 0;
+  for (let y = 1; y <= c.h; y++) {
+    for (let x = 1; x <= c.w; x++) {
+      if (!seen[y * W + x] && !isDark(x, y)) {
+        holes++;
+        sumY += y - 1;
+      }
+    }
+  }
+  return holes >= c.w * c.h * 0.02 && sumY / holes < c.h * 0.6;
 }
 
 export function classifyRL(bin, w, c) {
@@ -880,7 +923,16 @@ export function classifyRL(bin, w, c) {
       }
     }
   }
-  if (leftRows < rows * 0.85) return null;
+  if (leftRows < rows * 0.85) {
+    // 手書き風の R (左の縦棒がまっすぐでない)
+    let bottom = 0;
+    for (let y = c.y0 + Math.floor(rows * 0.8); y <= c.y1; y++) {
+      let k = 0;
+      for (let x = c.x0; x <= c.x1; x++) k += dark(x, y);
+      bottom = Math.max(bottom, k / cols);
+    }
+    return bottom >= 0.6 && upperHole(bin, w, c) ? 'R' : null;
+  }
   const fillOf = (fx0, fx1, fy0, fy1) => {
     let k = 0;
     let n = 0;
@@ -905,6 +957,8 @@ export function classifyRL(bin, w, c) {
   })();
   const midRight = fillOf(0.6, 1, 0.4, 0.65);
   if (topRight < 0.06 && midRight < 0.08 && bottomBand >= 0.55) return 'L';
+  // 手書き風の R: 上半分に閉じた輪があり、下で右へ大きく払う
+  if (bottomBand >= 0.6 && upperHole(bin, w, c)) return 'R';
   if (topRight >= 0.12 && fillOf(0.6, 1, 0.7, 1) >= 0.08) {
     // R は上の丸の中が空いていて、真ん中あたりに縦棒から右へ横棒が通る (「0」や「1」と区別する)
     if (fillOf(0.35, 0.6, 0.12, 0.3) > 0.35) return null;
