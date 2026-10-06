@@ -266,16 +266,45 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     return card;
   }
 
+  // フレーズ集の取り込み。JSON を複数、または zip ごと選べる。
+  // 同じ名前の教本・曲がすでにあれば入れ替える (タイトルが同じフレーズは練習の記録を引き継ぐ)
   $('pack-input').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
+    const files = [...e.target.files];
     e.target.value = '';
-    if (!file) return;
+    if (!files.length) return;
     try {
-      const phrases = parsePack(await file.text());
-      const saved = saveDocs(phrases.map((p) => makeDoc(p)));
+      const texts = [];
+      for (const file of files) {
+        if (/\.zip$/i.test(file.name) || file.type.includes('zip')) {
+          const { unzipSync, strFromU8 } = await import('fflate');
+          const entries = unzipSync(new Uint8Array(await file.arrayBuffer()));
+          for (const [name, data] of Object.entries(entries)) if (/\.json$/i.test(name) && !name.startsWith('__MACOSX')) texts.push(strFromU8(data));
+        } else {
+          texts.push(await file.text());
+        }
+      }
+      if (!texts.length) throw new Error('フレーズ集の JSON が見つかりません');
+      const phrases = texts.flatMap((t) => parsePack(t));
+      const groups = new Set(phrases.map((p) => p.group));
+      const old = listDocs().filter((d) => groups.has(d.group));
+      const oldIds = new Map(old.map((d) => [`${d.group}\n${d.title}`, d.id]));
+      const docs = phrases.map((p) => {
+        const doc = makeDoc(p);
+        const reuse = oldIds.get(`${p.group}\n${p.title}`);
+        if (reuse) {
+          doc.id = reuse;
+          oldIds.delete(`${p.group}\n${p.title}`);
+        }
+        return doc;
+      });
+      // 古いフレーズを先に消して容量を空ける
+      deleteDocs(old.map((d) => d.id));
+      const saved = saveDocs(docs);
+      if (hub.book && !groups.has(hub.book)) hub.book = null;
       renderHub();
-      if (saved < phrases.length) toast(`保存容量が足りず、${phrases.length}個中${saved}個だけ取り込みました。使わないフレーズ集を削除してください`, 8000);
-      else toast(`${phrases.length}個のフレーズを取り込みました`, 4000);
+      const replaced = old.length ? ` (${[...groups].filter((g) => old.some((d) => d.group === g)).length}冊を入れ替え)` : '';
+      if (saved < docs.length) toast(`保存容量が足りず、${docs.length}個中${saved}個だけ取り込みました。使わない教本を削除してください`, 8000);
+      else toast(`${groups.size}冊・${docs.length}個のフレーズを取り込みました${replaced}`, 5000);
     } catch (err) {
       toast(`読み込めませんでした: ${err.message}`, 6000);
     }

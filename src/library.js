@@ -54,7 +54,8 @@ export function saveDoc(doc) {
 
 /** まとめて保存する (目次の書き込みは最後に1回)。容量が足りなくなったらそこで止め、保存できた数を返す */
 export function saveDocs(docs) {
-  const index = read(INDEX_KEY, []);
+  const ids = new Set(docs.map((d) => d.id));
+  const index = read(INDEX_KEY, []).filter((d) => !ids.has(d.id));
   let saved = 0;
   for (const doc of docs) {
     doc.updatedAt = Date.now();
