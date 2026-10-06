@@ -7,7 +7,7 @@ import { TakeRecorder } from './recorder.js';
 import { detectOnsets } from './onsets.js';
 import { estimateLatency, rankOf, scoreTake, starsOf } from './scoring.js';
 import { allStats, deleteTake, levelOf, listTakes, saveTake, xpOf } from './takes.js';
-import { deleteDoc, listDocs, loadDoc, makeDoc, saveDoc } from '../library.js';
+import { deleteDoc, deleteDocs, listDocs, loadDoc, makeDoc, saveDoc, saveDocs } from '../library.js';
 import { parsePack } from './pack.js';
 
 const $ = (id) => document.getElementById(id);
@@ -80,6 +80,17 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
 
   // ------------------------------------------------------------ ハブ (ホーム)
 
+  const OPEN_GROUPS_KEY = 'drum-practice:open-groups';
+  const openGroups = new Set(
+    (() => {
+      try {
+        return JSON.parse(localStorage.getItem(OPEN_GROUPS_KEY)) ?? [];
+      } catch {
+        return [];
+      }
+    })(),
+  );
+
   function renderHub() {
     const stats = allStats();
     const lv = levelOf(stats.xp);
@@ -106,9 +117,36 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     if (own.length) section('マイフレーズ', own);
     const groups = [...new Set(mine.filter((p) => p.group).map((p) => p.group))].sort();
     for (const name of groups) {
-      section(name, mine.filter((p) => p.group === name).sort((a, b) => a.title.localeCompare(b.title, 'ja', { numeric: true })));
+      groupSection(name, mine.filter((p) => p.group === name).sort((a, b) => a.title.localeCompare(b.title, 'ja', { numeric: true })), stats);
     }
     for (const c of CATEGORIES) section(c.name, presets.filter((p) => p.category === c.id));
+  }
+
+  // 取り込んだフレーズ集は数が多いので折りたたみ、開いたときにカードを作る
+  function groupSection(name, items, stats) {
+    const sec = document.createElement('details');
+    sec.className = 'phrase-section phrase-group';
+    sec.open = openGroups.has(name);
+    sec.innerHTML = `<summary><h3>${esc(name)}</h3><span class="count">${items.length}</span>
+      <button class="icon-btn pc-del" data-del-group="${esc(name)}" title="フレーズ集ごと削除" aria-label="フレーズ集ごと削除"><svg class="ic"><use href="#i-trash" /></svg></button></summary>
+      <div class="phrase-grid"></div>`;
+    const fill = () => {
+      const grid = sec.querySelector('.phrase-grid');
+      if (grid.childElementCount) return;
+      for (const p of items) grid.appendChild(phraseCard(p, stats.phrases[p.id]));
+    };
+    if (sec.open) fill();
+    sec.addEventListener('toggle', () => {
+      if (sec.open) openGroups.add(name);
+      else openGroups.delete(name);
+      try {
+        localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify([...openGroups]));
+      } catch {
+        // 無視
+      }
+      if (sec.open) fill();
+    });
+    $('phrase-sections').appendChild(sec);
   }
 
   function phraseCard(p, st) {
@@ -135,15 +173,27 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     if (!file) return;
     try {
       const phrases = parsePack(await file.text());
-      for (const p of phrases) saveDoc(makeDoc(p));
+      const saved = saveDocs(phrases.map((p) => makeDoc(p)));
       renderHub();
-      toast(`${phrases.length}個のフレーズを取り込みました`, 4000);
+      if (saved < phrases.length) toast(`保存容量が足りず、${phrases.length}個中${saved}個だけ取り込みました。使わないフレーズ集を削除してください`, 8000);
+      else toast(`${phrases.length}個のフレーズを取り込みました`, 4000);
     } catch (err) {
       toast(`読み込めませんでした: ${err.message}`, 6000);
     }
   });
 
   $('phrase-sections').addEventListener('click', (e) => {
+    const delGroup = e.target.closest('[data-del-group]');
+    if (delGroup) {
+      e.preventDefault();
+      const name = delGroup.dataset.delGroup;
+      const ids = listDocs().filter((d) => d.group === name).map((d) => d.id);
+      if (confirm(`「${name}」の${ids.length}個のフレーズを削除しますか? (録音は残ります)`)) {
+        deleteDocs(ids);
+        renderHub();
+      }
+      return;
+    }
     const del = e.target.closest('[data-del-phrase]');
     if (del) {
       if (confirm('このフレーズを削除しますか? (録音は残ります)')) {

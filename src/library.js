@@ -38,6 +38,24 @@ export function saveDoc(doc) {
   return ok;
 }
 
+/** まとめて保存する (目次の書き込みは最後に1回)。容量が足りなくなったらそこで止め、保存できた数を返す */
+export function saveDocs(docs) {
+  const index = read(INDEX_KEY, []);
+  let saved = 0;
+  for (const doc of docs) {
+    doc.updatedAt = Date.now();
+    if (!write(DOC_PREFIX + doc.id, doc)) break;
+    index.push({ id: doc.id, title: doc.title, updatedAt: doc.updatedAt, measures: doc.measures.length, bpm: doc.bpm, group: doc.group });
+    saved++;
+  }
+  if (!write(INDEX_KEY, index)) {
+    // 目次が書けないときは今回の分を取り消す
+    for (const doc of docs.slice(0, saved)) localStorage.removeItem(DOC_PREFIX + doc.id);
+    return 0;
+  }
+  return saved;
+}
+
 export function deleteDoc(id) {
   try {
     localStorage.removeItem(DOC_PREFIX + id);
@@ -47,6 +65,21 @@ export function deleteDoc(id) {
   write(
     INDEX_KEY,
     read(INDEX_KEY, []).filter((d) => d.id !== id),
+  );
+}
+
+export function deleteDocs(ids) {
+  const set = new Set(ids);
+  for (const id of set) {
+    try {
+      localStorage.removeItem(DOC_PREFIX + id);
+    } catch {
+      // 無視
+    }
+  }
+  write(
+    INDEX_KEY,
+    read(INDEX_KEY, []).filter((d) => !set.has(d.id)),
   );
 }
 

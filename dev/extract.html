@@ -1,0 +1,20 @@
+<!doctype html><html><body><script type="module">
+// 一括抽出用: window.extract(url, from, to) で各ページを読み取り、段ごとの小節を返す
+import { analyzePdfPage, openPdf, readTextHints } from '../src/pdf.js';
+import { buildScore } from '../src/omr/buildScore.js';
+window.extract = async (url, from = 1, to = Infinity) => {
+  const data = new Uint8Array(await (await fetch(url)).arrayBuffer());
+  const pdf = await openPdf(data);
+  const hints = await readTextHints(pdf).catch(() => ({}));
+  const pages = [];
+  for (let p = from; p <= Math.min(to, pdf.numPages); p++) {
+    let a = null;
+    try { a = await analyzePdfPage(await pdf.getPage(p)); } catch (e) { pages.push({ page: p, error: String(e) }); continue; }
+    if (!a || !a.staves.length) { pages.push({ page: p, staves: 0 }); continue; }
+    const score = buildScore([a], { beats: 4, beatUnit: 4 });
+    pages.push({ page: p, staves: a.staves.length, measures: score.measures.map((m) => ({ notes: m.notes.map(({ tick, inst, head }) => ({ tick, inst, head })), y0: m.source.y0, x0: m.source.x0, x1: m.source.x1, heads: m.source.heads.length })) });
+  }
+  return { numPages: pdf.numPages, hints, pages };
+};
+document.body.dataset.ready = '1';
+</script></body></html>

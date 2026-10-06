@@ -13,8 +13,104 @@ export function toBinary(rgba, width, height, threshold = 170) {
   return bin;
 }
 
-/** 各行の長い黒ラン (2px までの途切れは許容) をすべて返す */
-function rowRuns(bin, w, h, minRun) {
+/** RGBA → 輝度 (0..255、透明部分は白背景に合成) */
+export function toGray(rgba, width, height) {
+  const g = new Uint8Array(width * height);
+  for (let i = 0, j = 0; i < g.length; i++, j += 4) {
+    const a = rgba[j + 3] / 255;
+    g[i] = 255 - a * (255 - (rgba[j] * 0.299 + rgba[j + 1] * 0.587 + rgba[j + 2] * 0.114));
+  }
+  return g;
+}
+
+function grayToBinary(gray, threshold) {
+  const bin = new Uint8Array(gray.length);
+  for (let i = 0; i < gray.length; i++) bin[i] = gray[i] < threshold ? 1 : 0;
+  return bin;
+}
+
+/**
+ * スキャンした楽譜の傾き (度) を推定する。横線 (五線) が水平になる角度で
+ * 行ごとの黒画素数の分布が最も尖る、という性質を使う。
+ */
+export function estimateSkew(bin, w, h) {
+  const f = Math.max(1, Math.round(w / 800));
+  const sw = Math.floor(w / f);
+  const sh = Math.floor(h / f);
+  const xs = [];
+  const ys = [];
+  for (let y = 0; y < sh; y++) {
+    for (let x = 0; x < sw; x++) {
+      let dark = 0;
+      for (let dy = 0; dy < f && !dark; dy++) for (let dx = 0; dx < f; dx++) if (bin[(y * f + dy) * w + x * f + dx]) dark = 1;
+      if (dark) {
+        xs.push(x - sw / 2);
+        ys.push(y);
+      }
+    }
+  }
+  if (xs.length < 100) return 0;
+  const hist = new Float64Array(sh * 2);
+  const score = (deg) => {
+    const t = Math.tan((deg * Math.PI) / 180);
+    hist.fill(0);
+    for (let i = 0; i < xs.length; i++) {
+      const y = Math.round(ys[i] - xs[i] * t + sh / 2);
+      if (y >= 0 && y < hist.length) hist[y]++;
+    }
+    let s = 0;
+    for (let i = 0; i < hist.length; i++) s += hist[i] * hist[i];
+    return s;
+  };
+  let best = 0;
+  let bestScore = score(0);
+  for (let d = -3; d <= 3.001; d += 0.1) {
+    const sc = score(d);
+    if (sc > bestScore * 1.0001) {
+      bestScore = sc;
+      best = d;
+    }
+  }
+  const center = best;
+  for (let d = center - 0.1; d <= center + 0.1; d += 0.02) {
+    const sc = score(d);
+    if (sc > bestScore) {
+      bestScore = sc;
+      best = d;
+    }
+  }
+  return Math.round(best * 100) / 100;
+}
+
+/** 画像を回転して傾きを直す (中心まわり、外側は白) */
+export function rotateGray(gray, w, h, deg) {
+  const out = new Uint8Array(w * h).fill(255);
+  const t = (deg * Math.PI) / 180;
+  const c = Math.cos(t);
+  const sn = Math.sin(t);
+  const cx = w / 2;
+  const cy = h / 2;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      // 出力 (x, y) に対応する元画像の位置
+      const dx = x - cx;
+      const dy = y - cy;
+      const sx = c * dx - sn * dy + cx;
+      const sy = sn * dx + c * dy + cy;
+      const x0 = Math.floor(sx);
+      const y0 = Math.floor(sy);
+      if (x0 < 0 || y0 < 0 || x0 + 1 >= w || y0 + 1 >= h) continue;
+      const fx = sx - x0;
+      const fy = sy - y0;
+      const i = y0 * w + x0;
+      out[y * w + x] = (gray[i] * (1 - fx) + gray[i + 1] * fx) * (1 - fy) + (gray[i + w] * (1 - fx) + gray[i + w + 1] * fx) * fy;
+    }
+  }
+  return out;
+}
+
+/** 各行の長い黒ラン (maxGap px までの途切れは許容) をすべて返す */
+function rowRuns(bin, w, h, minRun, maxGap = 2) {
   const rows = [];
   for (let y = 0; y < h; y++) {
     const row = y * w;
@@ -32,7 +128,7 @@ function rowRuns(bin, w, h, minRun) {
         gap = 0;
       } else if (cur > 0) {
         gap++;
-        if (gap > 2) close();
+        if (gap > maxGap) close();
       }
     }
     close();
@@ -47,9 +143,9 @@ const overlap = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, 
  * 五線を検出する。1行に複数の五線が左右に並ぶページ (教本の 2 列レイアウトなど) にも対応。
  * 返す順番は読む順 (段が左右に並ぶ列構成なら左の列から上→下、それ以外は上→下)
  */
-export function findStaves(bin, w, h) {
+export function findStaves(bin, w, h, { maxGap = 2 } = {}) {
   const minRun = Math.max(40, w * 0.1);
-  const rows = rowRuns(bin, w, h, minRun);
+  const rows = rowRuns(bin, w, h, minRun, maxGap);
 
   // 縦に連続する同じ範囲のランを1本の線にまとめる
   const lines = [];
@@ -678,8 +774,23 @@ function headerEnd(comps, staff, firstBar) {
  * 戻り値の座標はピクセル単位 (呼び出し側で正規化する)
  */
 export function analyzePage(rgba, width, height) {
-  const bin = toBinary(rgba, width, height);
-  const staves = findStaves(bin, width, height);
+  let gray = toGray(rgba, width, height);
+  // スキャンした本は少し傾いていることが多いので、まっすぐに直してから読む
+  const skew = estimateSkew(grayToBinary(gray, 200), width, height);
+  if (Math.abs(skew) >= 0.15) gray = rotateGray(gray, width, height, skew);
+  let bin = grayToBinary(gray, 170);
+  let staves = findStaves(bin, width, height);
+  if (!staves.length) {
+    // 薄くかすれた五線のスキャン: 淡い灰色も黒とみなし、線の途切れと 1px の上下のずれを許して探す
+    const soft = grayToBinary(gray, 205);
+    const thick = new Uint8Array(soft.length);
+    for (let i = width; i < soft.length - width; i++) thick[i] = soft[i] | soft[i - width] | soft[i + width];
+    const found = findStaves(thick, width, height, { maxGap: Math.round(width * 0.03) });
+    if (found.length) {
+      bin = soft;
+      staves = found;
+    }
+  }
   const result = [];
   for (const staff of staves) {
     const bars = findBarlines(bin, width, height, staff);
@@ -712,5 +823,5 @@ export function analyzePage(rgba, width, height) {
     }
     result.push({ ...staff, measures, headerEnd: hEnd });
   }
-  return { width, height, staves: result };
+  return { width, height, skew, staves: result };
 }
