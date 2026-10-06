@@ -384,12 +384,43 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     player.preload();
     $('pv-result').classList.add('hidden');
     renderPracticeHeader();
+    renderNav();
     renderShiftUI();
     syncPrefsUI();
     setBpm(bpm);
     await renderPracticeNotation();
     await refreshHistory();
   }
+
+  // 今のフレーズと同じ並び (同じ教本・同じカテゴリ・マイフレーズ) の前後
+  function phraseList() {
+    const p = g.phrase;
+    if (!p) return [];
+    if (p.preset) return PRESETS.filter((x) => x.category === p.category).map((x) => x.id);
+    const { mine } = allPhrases();
+    if (p.group) return mine.filter((x) => x.group === p.group).sort(byOrder).map((x) => x.id);
+    return mine.filter((x) => !x.group).map((x) => x.id);
+  }
+
+  function renderNav() {
+    const list = phraseList();
+    const i = list.indexOf(g.phrase?.id);
+    const blocked = g.mode === 'record' || g.mode === 'calibrate';
+    $('pv-prev').disabled = blocked || i <= 0;
+    $('pv-next').disabled = blocked || i < 0 || i >= list.length - 1;
+    const p = g.phrase;
+    const where = p?.group ? `${p.group}${p.section ? ` · ${p.section}` : ''}` : p?.preset ? (CATEGORIES.find((c) => c.id === p.category)?.name ?? '') : 'マイフレーズ';
+    $('pv-pos').textContent = i >= 0 ? `${where}  ${i + 1} / ${list.length}` : '';
+  }
+
+  function goNeighbor(d) {
+    const list = phraseList();
+    const i = list.indexOf(g.phrase?.id);
+    const id = list[i + d];
+    if (id) openPhrase(id);
+  }
+  $('pv-prev').addEventListener('click', () => goNeighbor(-1));
+  $('pv-next').addEventListener('click', () => goNeighbor(1));
 
   function renderPracticeHeader() {
     const p = g.phrase;
@@ -611,10 +642,16 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   }
 
   function updateButtons() {
-    $('pv-listen').classList.toggle('active', g.mode === 'listen');
-    $('pv-listen-label').textContent = g.mode === 'listen' ? '止める' : '手本を聴く';
-    $('pv-record').classList.toggle('active', g.mode === 'record');
-    $('pv-record-label').textContent = g.mode === 'record' ? '録音をやめる' : '録音する';
+    const listening = g.mode === 'listen';
+    const recording = g.mode === 'record';
+    $('pv-listen').classList.toggle('active', listening);
+    $('pv-listen').querySelector('use').setAttribute('href', listening ? '#i-stop' : '#i-play');
+    $('pv-listen').setAttribute('aria-label', listening ? '止める' : '手本を聴く');
+    $('pv-listen').title = listening ? '止める' : '手本を聴く';
+    $('pv-record').classList.toggle('active', recording);
+    $('pv-record').setAttribute('aria-label', recording ? '録音をやめる' : '録音する');
+    $('pv-record').title = recording ? '録音をやめる' : '録音する';
+    if (g.phrase) renderNav();
     $('pv-listen').disabled = g.mode === 'record' || g.mode === 'calibrate';
   }
 
