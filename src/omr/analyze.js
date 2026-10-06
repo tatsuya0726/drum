@@ -550,6 +550,13 @@ export function findHeads(clean, w, staff, region, withStems = null) {
       );
       if (headAbove && stem.bottom - hd.y1 < space * 1.8) return false;
     }
+    // 上向きの符幹の旗も同じ: 五線より上の符頭で、下に同じ符幹の黒玉があり、符幹がすぐ上で終わっていれば旗
+    if (hd.kind !== 'open' && hd.step <= -1) {
+      const headBelow = heads.some(
+        (o) => o !== hd && o.kind === 'filled' && o.step >= 0 && o.x0 - 2 <= stem.x && o.x1 + 2 >= stem.x && o.y <= stem.bottom && o.y - hd.y >= space * 1.1,
+      );
+      if (headBelow && hd.y0 - stem.top < space * 1.0) return false;
+    }
     return true;
   });
   // 連桁・旗の本数 (8分=1, 16分=2, 32分=3) を数える
@@ -777,19 +784,31 @@ export function analyzePage(rgba, width, height) {
   let gray = toGray(rgba, width, height);
   // スキャンした本は少し傾いていることが多いので、まっすぐに直してから読む
   const skew = estimateSkew(grayToBinary(gray, 200), width, height);
-  if (Math.abs(skew) >= 0.15) gray = rotateGray(gray, width, height, skew);
+  if (Math.abs(skew) >= 0.05) gray = rotateGray(gray, width, height, skew);
   let bin = grayToBinary(gray, 170);
   let staves = findStaves(bin, width, height);
-  if (!staves.length) {
-    // 薄くかすれた五線のスキャン: 淡い灰色も黒とみなし、線の途切れと 1px の上下のずれを許して探す
-    const soft = grayToBinary(gray, 205);
-    const thick = new Uint8Array(soft.length);
-    for (let i = width; i < soft.length - width; i++) thick[i] = soft[i] | soft[i - width] | soft[i + width];
-    const found = findStaves(thick, width, height, { maxGap: Math.round(width * 0.03) });
-    if (found.length) {
-      bin = soft;
-      staves = found;
-    }
+  // 薄くかすれた五線や少し曲がったスキャン: 淡い灰色も黒とみなし、線の途切れと 1px の上下のずれを許して探す。
+  // こちらのほうが多く見つかればそれを使う
+  const soft = grayToBinary(gray, 205);
+  const thick = new Uint8Array(soft.length);
+  for (let i = width; i < soft.length - width; i++) thick[i] = soft[i] | soft[i - width] | soft[i + width];
+  const found = findStaves(thick, width, height, { maxGap: Math.round(width * 0.03) });
+  if (found.length > staves.length) {
+    bin = soft;
+    staves = found;
+  }
+  // 同じ五線の一部を重ねて拾ったものは、長いほうだけ残す
+  staves = staves.filter(
+    (st) =>
+      !staves.some(
+        (o) => o !== st && Math.abs(o.top - st.top) < st.space && o.right - o.left > st.right - st.left && Math.min(o.right, st.right) - Math.max(o.left, st.left) > 0,
+      ),
+  );
+  // 五線の間隔が他と大きく違うもの (文章の行などの誤検出) は捨てる
+  if (staves.length >= 3) {
+    const sp = staves.map((st) => st.space).sort((a, b) => a - b);
+    const med = sp[Math.floor(sp.length / 2)];
+    staves = staves.filter((st) => st.space < med * 1.5 && st.space > med / 1.5);
   }
   const result = [];
   for (const staff of staves) {
