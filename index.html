@@ -58,6 +58,9 @@
           <svg class="ic"><use href="#i-file" /></svg><span class="hide-sm">PDFを開く</span>
           <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
         </label>
+        <button class="icon-btn" id="metro-btn" title="メトロノーム" aria-label="メトロノーム" aria-expanded="false">
+          <svg class="ic"><use href="#i-metro" /></svg>
+        </button>
         <button class="icon-btn" id="settings-btn" title="ミキサーと設定" aria-label="ミキサーと設定">
           <svg class="ic"><use href="#i-sliders" /></svg>
         </button>
@@ -345,7 +348,40 @@
       </div>
     </aside>
 
+    <div class="metro-sheet hidden" id="metro-sheet" role="dialog" aria-label="メトロノーム">
+      <div class="ms-head">
+        <b>メトロノーム</b>
+        <button class="icon-btn" id="ms-close" aria-label="閉じる"><svg class="ic"><use href="#i-close" /></svg></button>
+      </div>
+      <div class="ms-dots" id="ms-dots"></div>
+      <div class="ms-tempo">
+        <button class="ms-step" data-ms-step="-5">−5</button>
+        <button class="ms-step" data-ms-step="-1">−1</button>
+        <div class="ms-bpm"><input id="ms-bpm" type="number" min="30" max="300" value="100" inputmode="numeric" aria-label="BPM" /><span>BPM</span></div>
+        <button class="ms-step" data-ms-step="1">+1</button>
+        <button class="ms-step" data-ms-step="5">+5</button>
+      </div>
+      <input id="ms-range" type="range" min="30" max="300" value="100" aria-label="テンポ" />
+      <div class="ms-row">
+        <label>拍子
+          <select id="ms-beats">
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+          </select>
+        </label>
+        <div class="ms-subdiv" id="ms-subdiv" role="group" aria-label="細かさ">
+          <button data-sub="1" aria-pressed="true">4分</button><button data-sub="2" aria-pressed="false">8分</button><button data-sub="3" aria-pressed="false">3連</button><button data-sub="4" aria-pressed="false">16分</button>
+        </div>
+      </div>
+      <div class="ms-row">
+        <label class="ms-vol">音量 <input id="ms-vol" type="range" min="0" max="1" step="0.05" value="0.8" /></label>
+        <button class="btn btn-ghost" id="ms-tap">タップ</button>
+      </div>
+      <button class="big-btn ms-start" id="ms-start"><svg class="ic"><use href="#i-play" /></svg><span>スタート</span></button>
+    </div>
+
     <div class="toast hidden" id="toast"></div>
+    <!-- メトロノームは本体と別に読み込み、本体でエラーが起きても使えるようにする -->
+    <script type="module" src="/src/metronome-ui.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
