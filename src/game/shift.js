@@ -27,7 +27,13 @@ export function shiftMeasures(phrase, ticks, insts = null) {
 /** ずらし方の説明 (例: "バスドラ 16分×1 後ろ") */
 export function shiftLabel(ticks, instLabel) {
   if (!ticks) return '';
-  const unit = ticks % 12 === 0 ? { t: 12, name: '16分' } : ticks % 16 === 0 ? { t: 16, name: '3連8分' } : { t: 6, name: '32分' };
+  const units = [
+    { t: 12, name: '16分' },
+    { t: 16, name: '3連8分' },
+    { t: 8, name: '3連16分' },
+    { t: 6, name: '32分' },
+  ];
+  const unit = units.find((u) => ticks % u.t === 0) ?? { t: 1, name: 'tick' };
   const n = Math.abs(ticks) / unit.t;
   return `${instLabel ? instLabel + ' ' : ''}${unit.name}×${n} ${ticks > 0 ? '後ろ' : '前'}`;
 }

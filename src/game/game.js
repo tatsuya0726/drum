@@ -58,7 +58,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   // ------------------------------------------------------------ フレーズの取得
 
   function allPhrases() {
-    const mine = listDocs().map((d) => ({ id: d.id, title: d.title, mine: true, category: 'mine', group: d.group, level: null, bpm: d.bpm }));
+    const mine = listDocs().map((d) => ({ id: d.id, title: d.title, mine: true, category: 'mine', group: d.group, section: d.section, kind: d.kind, order: d.order, level: null, bpm: d.bpm }));
     return { mine, presets: PRESETS };
   }
 
@@ -84,9 +84,9 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   const HUB_KEY = 'drum-practice:hub';
   const hub = (() => {
     try {
-      return { tab: null, level: 0, ...JSON.parse(localStorage.getItem(HUB_KEY)) };
+      return { tab: null, level: 0, book: null, ...JSON.parse(localStorage.getItem(HUB_KEY)) };
     } catch {
-      return { tab: null, level: 0 };
+      return { tab: null, level: 0, book: null };
     }
   })();
   function setHub(patch) {
@@ -156,10 +156,9 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     }
 
     if (tab.id === 'books') {
-      const groups = [...new Set(imported.map((p) => p.group))].sort();
-      for (const name of groups) {
-        groupSection(name, imported.filter((p) => p.group === name).sort((a, b) => a.title.localeCompare(b.title, 'ja', { numeric: true })), stats);
-      }
+      const groups = [...new Set(imported.map((p) => p.group))].sort((a, b) => a.localeCompare(b, 'ja'));
+      if (hub.book && groups.includes(hub.book)) renderBook(hub.book, imported.filter((p) => p.group === hub.book), stats);
+      else renderBookList(groups, imported, stats);
     } else {
       const items = levels.length > 1 && hub.level ? tab.items.filter((p) => p.level === hub.level) : tab.items;
       const sec = document.createElement('section');
@@ -171,31 +170,82 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     }
   }
 
-  // 取り込んだフレーズ集は数が多いので折りたたみ、開いたときにカードを作る
-  function groupSection(name, items, stats) {
-    const sec = document.createElement('details');
-    sec.className = 'phrase-section phrase-group';
-    sec.open = openGroups.has(name);
-    sec.innerHTML = `<summary><h3>${esc(name)}</h3><span class="count">${items.length}</span>
-      <button class="icon-btn pc-del" data-del-group="${esc(name)}" title="フレーズ集ごと削除" aria-label="フレーズ集ごと削除"><svg class="ic"><use href="#i-trash" /></svg></button></summary>
-      <div class="phrase-grid"></div>`;
-    const fill = () => {
-      const grid = sec.querySelector('.phrase-grid');
-      if (grid.childElementCount) return;
-      for (const p of items) grid.appendChild(phraseCard(p, stats.phrases[p.id]));
-    };
-    if (sec.open) fill();
-    sec.addEventListener('toggle', () => {
-      if (sec.open) openGroups.add(name);
-      else openGroups.delete(name);
-      try {
-        localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify([...openGroups]));
-      } catch {
-        // 無視
-      }
-      if (sec.open) fill();
+  // 取り込んだ教本・曲の一覧
+  function renderBookList(groups, imported, stats) {
+    const list = document.createElement('div');
+    list.className = 'book-list';
+    for (const name of groups) {
+      const items = imported.filter((p) => p.group === name);
+      const sections = new Set(items.map((p) => p.section).filter(Boolean)).size;
+      const done = items.filter((p) => stats.phrases[p.id]).length;
+      const b = document.createElement('button');
+      b.className = 'book-card';
+      b.dataset.hubBook = name;
+      b.innerHTML = `<b>${esc(name)}</b><small>${items.length}フレーズ${sections ? ` · ${sections}パート` : ''}${done ? ` · ${done}個練習済み` : ''}</small><svg class="ic"><use href="#i-next" /></svg>`;
+      list.appendChild(b);
+    }
+    $('phrase-sections').appendChild(list);
+  }
+
+  const byOrder = (a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || a.title.localeCompare(b.title, 'ja', { numeric: true });
+
+  // 1冊 (1曲) の中: パート (序盤・中盤… / ページ) ごとに折りたたみ、中をフレーズとフィルインに分けて順番に並べる
+  function renderBook(name, items, stats) {
+    const root = $('phrase-sections');
+    const head = document.createElement('div');
+    head.className = 'book-head';
+    head.innerHTML = `<button class="icon-btn" data-hub-book="" aria-label="教本の一覧へ"><svg class="ic"><use href="#i-prev" /></svg></button>
+      <div><b>${esc(name)}</b><small>${items.length}フレーズ</small></div>
+      <button class="icon-btn" data-del-group="${esc(name)}" title="この教本ごと削除" aria-label="この教本ごと削除"><svg class="ic"><use href="#i-trash" /></svg></button>`;
+    root.appendChild(head);
+    const sorted = [...items].sort(byOrder);
+    const sections = [];
+    for (const p of sorted) {
+      const key = p.section ?? 'フレーズ';
+      let sec = sections.find((x) => x.name === key);
+      if (!sec) sections.push((sec = { name: key, items: [] }));
+      sec.items.push(p);
+    }
+    const anyOpen = sections.some((x) => openGroups.has(`${name}/${x.name}`));
+    sections.forEach((sec, i) => {
+      const key = `${name}/${sec.name}`;
+      const el = document.createElement('details');
+      el.className = 'phrase-section phrase-group';
+      el.open = openGroups.has(key) || (!anyOpen && i === 0);
+      el.innerHTML = `<summary><h3>${esc(sec.name)}</h3><span class="count">${sec.items.length}</span></summary><div class="book-body"></div>`;
+      const fill = () => {
+        const body = el.querySelector('.book-body');
+        if (body.childElementCount) return;
+        const kinds = [...new Set(sec.items.map((p) => p.kind ?? ''))];
+        const order = ['フレーズ', 'フィルイン'];
+        kinds.sort((a, b) => (order.indexOf(a) + 1 || 9) - (order.indexOf(b) + 1 || 9));
+        for (const k of kinds) {
+          const list = sec.items.filter((p) => (p.kind ?? '') === k);
+          if (kinds.length > 1 || k) {
+            const h = document.createElement('h4');
+            h.className = 'kind-head';
+            h.textContent = `${k || 'その他'} (${list.length})`;
+            body.appendChild(h);
+          }
+          const grid = document.createElement('div');
+          grid.className = 'phrase-grid';
+          for (const p of list) grid.appendChild(phraseCard(p, stats.phrases[p.id]));
+          body.appendChild(grid);
+        }
+      };
+      if (el.open) fill();
+      el.addEventListener('toggle', () => {
+        if (el.open) openGroups.add(key);
+        else openGroups.delete(key);
+        try {
+          localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify([...openGroups]));
+        } catch {
+          // 無視
+        }
+        if (el.open) fill();
+      });
+      root.appendChild(el);
     });
-    $('phrase-sections').appendChild(sec);
   }
 
   function phraseCard(p, st) {
@@ -206,7 +256,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     card.innerHTML = `
       <button class="pc-main" data-phrase="${esc(p.id)}">
         <span class="pc-top">
-          ${p.level ? `<span class="pc-level">Lv${p.level}</span>` : '<span class="pc-level mine">MY</span>'}
+          ${p.level ? `<span class="pc-level">Lv${p.level}</span>` : `<span class="pc-level mine">${p.group ? esc(p.kind ?? 'フレーズ') : 'MY'}</span>`}
           <span class="pc-stars ${stars ? '' : 'none'}" aria-label="星${stars}つ">${starStr(stars)}</span>
         </span>
         <b class="pc-title">${esc(p.title)}</b>
@@ -235,6 +285,12 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     const tabBtn = e.target.closest('[data-hub-tab]');
     if (tabBtn) {
       setHub({ tab: tabBtn.dataset.hubTab, level: 0 });
+      return;
+    }
+    const bookBtn = e.target.closest('[data-hub-book]');
+    if (bookBtn) {
+      setHub({ book: bookBtn.dataset.hubBook || null });
+      window.scrollTo({ top: $('phrase-sections').offsetTop - 70 });
       return;
     }
     const lvBtn = e.target.closest('[data-hub-level]');

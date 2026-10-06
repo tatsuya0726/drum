@@ -29,11 +29,25 @@ export function loadDoc(id) {
   return read(DOC_PREFIX + id, null);
 }
 
+function indexEntry(doc) {
+  return {
+    id: doc.id,
+    title: doc.title,
+    updatedAt: doc.updatedAt,
+    measures: doc.measures.length,
+    bpm: doc.bpm,
+    group: doc.group,
+    section: doc.section,
+    kind: doc.kind,
+    order: doc.order,
+  };
+}
+
 export function saveDoc(doc) {
   doc.updatedAt = Date.now();
   const ok = write(DOC_PREFIX + doc.id, doc);
   const index = read(INDEX_KEY, []).filter((d) => d.id !== doc.id);
-  index.push({ id: doc.id, title: doc.title, updatedAt: doc.updatedAt, measures: doc.measures.length, bpm: doc.bpm, group: doc.group });
+  index.push(indexEntry(doc));
   write(INDEX_KEY, index);
   return ok;
 }
@@ -45,7 +59,7 @@ export function saveDocs(docs) {
   for (const doc of docs) {
     doc.updatedAt = Date.now();
     if (!write(DOC_PREFIX + doc.id, doc)) break;
-    index.push({ id: doc.id, title: doc.title, updatedAt: doc.updatedAt, measures: doc.measures.length, bpm: doc.bpm, group: doc.group });
+    index.push(indexEntry(doc));
     saved++;
   }
   if (!write(INDEX_KEY, index)) {
@@ -88,10 +102,14 @@ export function newId() {
 }
 
 /** 譜面データから保存用のドキュメントを作る (PDF の位置情報などは捨てる) */
-export function makeDoc({ title, timeSig, bpm, measures, group }) {
+export function makeDoc({ title, timeSig, bpm, measures, group, section, kind, order }) {
   return {
     id: newId(),
     group: group || undefined,
+    // 取り込んだ教本・曲の中の区切り (例: 序盤 / p.10〜19) と種類 (フレーズ / フィルイン)、並び順
+    section: section || undefined,
+    kind: kind || undefined,
+    order: order ?? undefined,
     title: title || '新しい譜面',
     timeSig: { ...timeSig },
     bpm: bpm ?? 100,

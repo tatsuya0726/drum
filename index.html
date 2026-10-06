@@ -127,20 +127,8 @@
               <button class="big-btn listen" id="pv-listen"><svg class="ic"><use href="#i-play" /></svg><span id="pv-listen-label">手本を聴く</span></button>
               <button class="big-btn record" id="pv-record"><span class="rec-dot"></span><span id="pv-record-label">録音する</span></button>
             </div>
-            <div class="pv-options">
-              <label class="row"><span>フレーズを続けて叩く回数</span>
-                <select id="pv-loops"><option value="1">1回</option><option value="2">2回</option><option value="4">4回</option><option value="8">8回</option></select>
-              </label>
-              <label class="row switch-row"><span>メトロノームを鳴らす</span><input type="checkbox" class="switch" id="pv-metro" /></label>
-              <label class="row switch-row sub-row"><span>メトロノームも一緒に録音する</span><input type="checkbox" class="switch" id="pv-click-rec" /></label>
-              <label class="row switch-row"><span>録音中も手本のドラムを鳴らす</span><input type="checkbox" class="switch" id="pv-guide" /></label>
-              <label class="row switch-row"><span>イヤホン・ヘッドホンを使う</span><input type="checkbox" class="switch" id="pv-headphones" /></label>
-              <p class="note">録音前に1小節のカウントが入ります。スピーカーで鳴らす場合は、メトロノームや手本の音を拾わないようにエコー除去を使います。採点がずれるときは<button class="link-btn" id="pv-calibrate">タイミング補正</button>をしてください。</p>
-            </div>
-          </div>
-
-          <div class="card pv-shift">
-            <h3>フレーズをずらす</h3>
+            <div class="pv-shift">
+              <h3>フレーズをずらす</h3>
             <p class="note">全体や楽器ごとに音符単位でずらして、新しいパターンを作れます (フレーズの長さで一周します)。</p>
             <div class="row">
               <span>ずらすもの</span>
@@ -148,7 +136,7 @@
             </div>
             <div class="row">
               <span>単位</span>
-              <select id="pv-shift-unit"><option value="12">16分音符</option><option value="24">8分音符</option><option value="48">4分音符</option><option value="6">32分音符</option></select>
+              <select id="pv-shift-unit"><option value="12">16分音符</option><option value="24">8分音符</option><option value="48">4分音符</option><option value="16">3連8分</option><option value="8">3連16分</option><option value="6">32分音符</option></select>
             </div>
             <div class="shift-buttons">
               <button class="btn" id="pv-shift-left">◀ 前へ</button>
@@ -158,6 +146,21 @@
             <div class="row">
               <button class="btn btn-ghost" id="pv-shift-reset">元に戻す</button>
               <button class="btn btn-accent" id="pv-shift-save">マイフレーズに保存</button>
+            </div>
+            </div>
+          </div>
+
+          <div class="card pv-settings">
+            <h3>練習の設定</h3>
+            <div class="pv-options">
+              <label class="row"><span>フレーズを続けて叩く回数</span>
+                <select id="pv-loops"><option value="1">1回</option><option value="2">2回</option><option value="4">4回</option><option value="8">8回</option></select>
+              </label>
+              <label class="row switch-row"><span>メトロノームを鳴らす</span><input type="checkbox" class="switch" id="pv-metro" /></label>
+              <label class="row switch-row sub-row"><span>メトロノームも一緒に録音する</span><input type="checkbox" class="switch" id="pv-click-rec" /></label>
+              <label class="row switch-row"><span>録音中も手本のドラムを鳴らす</span><input type="checkbox" class="switch" id="pv-guide" /></label>
+              <label class="row switch-row"><span>イヤホン・ヘッドホンを使う</span><input type="checkbox" class="switch" id="pv-headphones" /></label>
+              <p class="note">録音前に1小節のカウントが入ります。スピーカーで鳴らす場合は、メトロノームや手本の音を拾わないようにエコー除去を使います。採点がずれるときは<button class="link-btn" id="pv-calibrate">タイミング補正</button>をしてください。</p>
             </div>
           </div>
         </div>

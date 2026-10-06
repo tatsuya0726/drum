@@ -45,6 +45,9 @@ export function parsePack(json) {
     return {
       title: String(p.title ?? `フレーズ ${i + 1}`),
       group: String(p.group ?? data.name ?? '取り込んだフレーズ'),
+      section: p.section ? String(p.section) : undefined,
+      kind: p.kind ? String(p.kind) : undefined,
+      order: i,
       bpm: Number(p.bpm) || 90,
       timeSig,
       measures,
@@ -57,6 +60,6 @@ export function makePack(name, docs) {
     format: PACK_FORMAT,
     version: 1,
     name,
-    phrases: docs.map((d) => ({ title: d.title, group: d.group, bpm: d.bpm, timeSig: d.timeSig, measures: d.measures })),
+    phrases: docs.map((d) => ({ title: d.title, group: d.group, section: d.section, kind: d.kind, bpm: d.bpm, timeSig: d.timeSig, measures: d.measures })),
   };
 }
