@@ -843,7 +843,8 @@ export function findStickings(bin, w, h, staff, others = []) {
     const ry0 = Math.max(0, Math.floor(ya));
     const ry1 = Math.min(h - 1, Math.ceil(yb));
     if (ry1 <= ry0) continue;
-    for (const c of components(bin, w, { rx0, ry0, rx1, ry1 })) {
+    const comps = components(bin, w, { rx0, ry0, rx1, ry1 }).filter((c) => c.h >= space * 0.3);
+    for (const c of comps) {
       if (c.h < space * 0.6 || c.h > space * 2.2 || c.w < space * 0.35 || c.w > space * 2 || c.w > c.h * 1.2) continue;
       if (c.y0 <= ry0 || c.y1 >= ry1) continue;
       const cy = (c.y0 + c.y1) / 2;
@@ -852,7 +853,12 @@ export function findStickings(bin, w, h, staff, others = []) {
       const dist = (st) => Math.max(0, st.top - cy, cy - st.bottom);
       if (others.some((o) => o !== staff && cx >= o.left && cx <= o.right && dist(o) < dist(staff))) continue;
       const hand = classifyRL(bin, w, c);
-      if (hand) found.push({ hand, x0: c.x0, x1: c.x1, x: cx, y: cy });
+      if (!hand) continue;
+      // 単語の一部 (すぐ隣に R / L 以外の文字がある) なら手順ではない
+      const inWord = comps.some(
+        (o) => o !== c && o.y1 > c.y0 && o.y0 < c.y1 && (Math.abs(o.x0 - c.x1) < space * 0.35 || Math.abs(c.x0 - o.x1) < space * 0.35) && !classifyRL(bin, w, o),
+      );
+      if (!inWord) found.push({ hand, x0: c.x0, x1: c.x1, x: cx, y: cy });
     }
   }
   // 同じ高さに 3 つ以上並んだものだけ残す
@@ -902,6 +908,8 @@ export function classifyRL(bin, w, c) {
   if (topRight >= 0.12 && fillOf(0.6, 1, 0.7, 1) >= 0.08) {
     // R は上の丸の中が空いていて、真ん中あたりに縦棒から右へ横棒が通る (「0」や「1」と区別する)
     if (fillOf(0.35, 0.6, 0.12, 0.3) > 0.35) return null;
+    // 上は横棒で閉じている (「H」は上が開いている)
+    if (fillOf(0.35, 0.6, 0, 0.15) < 0.2) return null;
     let bar = false;
     for (let y = c.y0 + Math.floor(rows * 0.3); y <= c.y0 + Math.ceil(rows * 0.6); y++) {
       let k = 0;
