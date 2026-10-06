@@ -82,10 +82,12 @@ export function voiceTokens(notes, timeSig, voice) {
       continue;
     }
     const byOffset = new Map();
+    const stickAt = new Map(); // 手順 (R / L)
     for (const n of inGroup) {
       const off = n.tick - start;
       if (!byOffset.has(off)) byOffset.set(off, []);
       byOffset.get(off).push(n.inst);
+      if (n.stick) stickAt.set(off, n.stick);
     }
     const offsets = [...byOffset.keys()].sort((a, b) => a - b);
     const u = chooseUnit(len, offsets);
@@ -103,7 +105,7 @@ export function voiceTokens(notes, timeSig, voice) {
         for (let k = 0; k < 3; k++) {
           const at = h * half + k * u;
           const insts = byOffset.has(at) ? [...new Set(byOffset.get(at))] : [];
-          tokens.push(tripletToken(u, !insts.length, insts, gid));
+          tokens.push({ ...tripletToken(u, !insts.length, insts, gid), stick: stickAt.get(at) });
         }
       }
       continue;
@@ -124,12 +126,12 @@ export function voiceTokens(notes, timeSig, voice) {
       const next = k + 1 < offsets.length ? Math.round(offsets[k + 1] / u) * u : slots * u;
       const insts = [...new Set(byOffset.get(offsets[k]))];
       if (triplet) {
-        tokens.push(tripletToken(u, false, insts, gi));
+        tokens.push({ ...tripletToken(u, false, insts, gi), stick: stickAt.get(offsets[k]) });
         if (next - off > u) pushRest(next - off - u);
       } else {
         const parts = splitDuration(next - off);
         const [t, d] = parts[0];
-        tokens.push({ ticks: t, duration: d, rest: false, insts, keys: keysFor(insts), group: gi });
+        tokens.push({ ticks: t, duration: d, rest: false, insts, keys: keysFor(insts), group: gi, stick: stickAt.get(offsets[k]) });
         if (next - off - t > 0) pushRest(next - off - t);
       }
       pos = next;

@@ -826,6 +826,95 @@ function isThree(bin, w, c) {
   return part(R, 0.1, 0.9, Math.min) >= 0.5;
 }
 
+/**
+ * 五線の上下に書かれた手順 (R / L) の文字を探す。
+ * 左に縦棒があり、右上が空いて下に横棒があれば L、右上に丸い部分があれば R とみなす。
+ * 3 文字以上が同じ高さに並んでいるものだけを手順として使う
+ */
+export function findStickings(bin, w, h, staff, others = []) {
+  const { top, bottom, space, left, right } = staff;
+  const rx0 = Math.max(0, Math.floor(left));
+  const rx1 = Math.min(w - 1, Math.ceil(right));
+  const found = [];
+  for (const [ya, yb] of [
+    [bottom + space * 0.4, bottom + space * 7],
+    [top - space * 7, top - space * 0.4],
+  ]) {
+    const ry0 = Math.max(0, Math.floor(ya));
+    const ry1 = Math.min(h - 1, Math.ceil(yb));
+    if (ry1 <= ry0) continue;
+    for (const c of components(bin, w, { rx0, ry0, rx1, ry1 })) {
+      if (c.h < space * 0.6 || c.h > space * 2.2 || c.w < space * 0.35 || c.w > space * 2 || c.w > c.h * 1.2) continue;
+      if (c.y0 <= ry0 || c.y1 >= ry1) continue;
+      const cy = (c.y0 + c.y1) / 2;
+      const cx = (c.x0 + c.x1) / 2;
+      // 別の段のほうが近い文字はその段のもの
+      const dist = (st) => Math.max(0, st.top - cy, cy - st.bottom);
+      if (others.some((o) => o !== staff && cx >= o.left && cx <= o.right && dist(o) < dist(staff))) continue;
+      const hand = classifyRL(bin, w, c);
+      if (hand) found.push({ hand, x0: c.x0, x1: c.x1, x: cx, y: cy });
+    }
+  }
+  // 同じ高さに 3 つ以上並んだものだけ残す
+  return found.filter((a) => found.filter((b) => Math.abs(b.y - a.y) < space * 0.6).length >= 3);
+}
+
+export function classifyRL(bin, w, c) {
+  const dark = (x, y) => bin[y * w + x];
+  const rows = c.h;
+  const cols = c.w;
+  // 左側の縦棒: ほぼすべての行で左 35% に黒がある
+  const lw = Math.max(1, Math.round(cols * 0.35));
+  let leftRows = 0;
+  for (let y = c.y0; y <= c.y1; y++) {
+    for (let x = c.x0; x < c.x0 + lw; x++) {
+      if (dark(x, y)) {
+        leftRows++;
+        break;
+      }
+    }
+  }
+  if (leftRows < rows * 0.85) return null;
+  const fillOf = (fx0, fx1, fy0, fy1) => {
+    let k = 0;
+    let n = 0;
+    for (let y = c.y0 + Math.floor(rows * fy0); y < c.y0 + Math.ceil(rows * fy1); y++) {
+      for (let x = c.x0 + Math.floor(cols * fx0); x < c.x0 + Math.ceil(cols * fx1); x++) {
+        k += dark(x, y);
+        n++;
+      }
+    }
+    return n ? k / n : 0;
+  };
+  const topRight = fillOf(0.6, 1, 0.05, 0.4);
+  const bottomBand = (() => {
+    // 下の方の行で一番横に長く黒が続く割合
+    let best = 0;
+    for (let y = c.y0 + Math.floor(rows * 0.8); y <= c.y1; y++) {
+      let k = 0;
+      for (let x = c.x0; x <= c.x1; x++) k += dark(x, y);
+      best = Math.max(best, k / cols);
+    }
+    return best;
+  })();
+  const midRight = fillOf(0.6, 1, 0.4, 0.65);
+  if (topRight < 0.06 && midRight < 0.08 && bottomBand >= 0.55) return 'L';
+  if (topRight >= 0.12 && fillOf(0.6, 1, 0.7, 1) >= 0.08) {
+    // R は上の丸の中が空いていて、真ん中あたりに縦棒から右へ横棒が通る (「0」や「1」と区別する)
+    if (fillOf(0.35, 0.6, 0.12, 0.3) > 0.35) return null;
+    let bar = false;
+    for (let y = c.y0 + Math.floor(rows * 0.3); y <= c.y0 + Math.ceil(rows * 0.6); y++) {
+      let k = 0;
+      const xs = c.x0 + Math.floor(cols * 0.15);
+      const xe = c.x0 + Math.ceil(cols * 0.65);
+      for (let x = xs; x < xe; x++) k += dark(x, y);
+      if (k >= (xe - xs) * 0.7) bar = true;
+    }
+    return bar ? 'R' : null;
+  }
+  return null;
+}
+
 function headerEnd(comps, staff, firstBar) {
   const { left, top, bottom, space } = staff;
   let end = left + space * 2.5;
@@ -887,6 +976,12 @@ export function analyzePage(rgba, width, height) {
       const hd = heads[i];
       if (tripletMarks.some((t) => Math.abs(hd.x - t.x) < staff.space * 0.7 && Math.abs(hd.y - t.y) < staff.space * 0.9)) heads.splice(i, 1);
     }
+    // 手順の文字は音符の真下 (真上) にある。近くに符頭のないもの (題名などの文字) は除き、3 つ以上並んだものだけ使う
+    let stickMarks = findStickings(bin, width, height, staff, staves).filter((t) => heads.some((hd) => Math.abs(hd.x - t.x) < staff.space * 1.2));
+    // 手順は段の上か下の 1 列に書かれるので、一番多く並んだ列だけ使う
+    const rowOf = (a) => stickMarks.filter((b) => Math.abs(b.y - a.y) < staff.space * 0.6);
+    const best = stickMarks.reduce((acc, a) => (rowOf(a).length > acc.length ? rowOf(a) : acc), []);
+    stickMarks = best.length >= 3 ? best : [];
     // 小節の区切り
     const bounds = [];
     for (const b of bars) {
@@ -902,7 +997,8 @@ export function analyzePage(rgba, width, height) {
       const x1 = bounds[k + 1];
       const notes = heads.filter((hd) => hd.x > x0 && hd.x < x1);
       const triplets = tripletMarks.filter((t) => t.x > x0 && t.x < x1).length;
-      measures.push({ x0, x1, contentStart: k === 0 ? hEnd : x0, firstInSystem: k === 0, notes, triplets });
+      const stickings = stickMarks.filter((t) => t.x > x0 && t.x < x1);
+      measures.push({ x0, x1, contentStart: k === 0 ? hEnd : x0, firstInSystem: k === 0, notes, triplets, stickings });
     }
     // 符頭が1つもない段頭の領域 (拍子記号だけの区間など) は捨てる
     if (measures.length > 1 && measures[0].notes.length === 0 && measures[0].x1 - hEnd < staff.space * 2) {

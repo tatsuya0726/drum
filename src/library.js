@@ -116,7 +116,7 @@ export function makeDoc({ title, timeSig, bpm, measures, group, section, kind, o
     bpm: bpm ?? 100,
     measures: measures.map((m) => ({
       grid: m.grid ?? 4,
-      notes: m.notes.map((n) => ({ tick: n.tick, inst: n.inst, vel: n.vel ?? 1 })),
+      notes: m.notes.map((n) => ({ tick: n.tick, inst: n.inst, vel: n.vel ?? 1, ...(n.stick ? { stick: n.stick } : {}) })),
     })),
     loop: { enabled: false, start: 0, end: 0 },
     createdAt: Date.now(),

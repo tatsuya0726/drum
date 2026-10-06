@@ -67,6 +67,22 @@ export function buildScore(pages, opts = {}) {
           return Number.isInteger(v) && v >= 1 ? v : null;
         });
         const assigned = assignSlots(xs, { start, end: m.x1 }, measureSlots, spb, st.space, values, { triplets, unit: spb / (fine ? 8 : 4) });
+        // 手順 (R / L) の文字を一番近い発音に割り当てる (足の音には付けない)
+        const stickOf = new Map();
+        const pairs = [];
+        (m.stickings ?? []).forEach((t, ti) => {
+          onsets.forEach((o, oi) => {
+            const d = Math.abs(o.x - t.x);
+            if (d < st.space * 1.2) pairs.push({ d, ti, oi, hand: t.hand });
+          });
+        });
+        pairs.sort((a, b) => a.d - b.d);
+        const usedT = new Set();
+        for (const pr of pairs) {
+          if (usedT.has(pr.ti) || stickOf.has(pr.oi)) continue;
+          usedT.add(pr.ti);
+          stickOf.set(pr.oi, pr.hand);
+        }
         const notes = [];
         onsets.forEach((o, i) => {
           for (const h of o.notes) {
@@ -76,7 +92,9 @@ export function buildScore(pages, opts = {}) {
             if (inst === 'none') continue;
             const tick = assigned[i] * tickPerSlot;
             if (notes.some((n) => n.tick === tick && n.inst === inst)) continue;
-            notes.push({ tick, inst, vel: 1, head: key });
+            const note = { tick, inst, vel: 1, head: key };
+            if (stickOf.has(i) && inst !== 'kick' && inst !== 'hhp') note.stick = stickOf.get(i);
+            notes.push(note);
           }
         });
         notes.sort((a, b) => a.tick - b.tick);

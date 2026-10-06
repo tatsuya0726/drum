@@ -167,3 +167,17 @@ describe.each([200, 160])('triplets @%idpi', (dpi) => {
     expect(ticks(m, 'hhc')).toEqual([96, 108, 120, 132, 144]);
   });
 });
+
+// 手順 (R / L) の文字 (samples/sticking.ly)
+describe.each([200, 160])('sticking @%idpi', (dpi) => {
+  const png = PNG.sync.read(fs.readFileSync(new URL(`./fixtures/sticking-${dpi}.png`, import.meta.url)));
+  const score = buildScore([analyzePage(png.data, png.width, png.height)]);
+  const sticks = (m) => {
+    const byTick = new Map();
+    for (const n of m.notes) if (n.stick) byTick.set(n.tick, n.stick);
+    return [...byTick.entries()].sort((a, b) => a[0] - b[0]).map(([, s]) => s).join('');
+  };
+  it('measure 1', () => expect(sticks(score.measures[0])).toBe('RLRRLRLLRLRLLR'));
+  it('measure 2', () => expect(sticks(score.measures[1])).toBe('RLRLRRLLRLR'));
+  it('kick has no sticking', () => expect(score.measures[1].notes.filter((n) => n.inst === 'kick' && n.stick)).toEqual([]));
+});

@@ -33,6 +33,12 @@ function buildVoice(measure, timeSig, which) {
       if (t.insts.includes('hho')) {
         note.addModifier(new Annotation('o').setVerticalJustification(Annotation.VerticalJustify.TOP), 0);
       }
+      // 手順 (R / L) は上の声部 (手) の音符の下に書く
+      if (t.stick && up) {
+        const a = new Annotation(t.stick).setVerticalJustification(Annotation.VerticalJustify.BOTTOM);
+        a.setFont('Arial', 11, 'bold');
+        note.addModifier(a, 0);
+      }
     }
     if (t.duration.endsWith('d')) Dot.buildAndAttach([note], { all: true });
     note.__token = t;
