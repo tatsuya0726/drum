@@ -7,7 +7,7 @@ for (const file of files) {
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   await page.goto(url);
   await page.setInputFiles('#file-input', file);
-  await page.waitForSelector('#pages .mbox', { timeout: 60000 });
+  await page.waitForSelector('#pages .mbox', { state: 'attached', timeout: 60000 });
   await page.click('#to-editor-btn');
   await page.waitForSelector('#notation svg');
   const doc = await page.evaluate(() => {
@@ -17,13 +17,14 @@ for (const file of files) {
   console.log('==', file);
   doc.measures.forEach((m, i) => {
     const out = {};
-    const step = m.notes.some((n) => n.tick % 12) ? 6 : 12;
+    const step = m.notes.some((n) => n.tick % 12) ? (m.notes.every((n) => n.tick % 8 === 0) ? 8 : m.notes.every((n) => n.tick % 6 === 0) ? 6 : 4) : 12;
     for (const n of m.notes) {
       out[n.inst] ??= '.'.repeat(192 / step).split('');
       out[n.inst][n.tick / step] = 'x';
     }
     console.log(String(i + 1).padStart(2), Object.entries(out).sort().map(([k, v]) => `${k}:${v.join('')}`).join(' '));
   });
+  if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT });
   await page.close();
 }
 await browser.close();

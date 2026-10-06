@@ -52,21 +52,21 @@ export function buildScore(pages, opts = {}) {
           return bs.length ? Math.max(...bs) : null;
         });
         const has32 = beams.some((b) => b >= 3);
-        let measureSlots = slots;
-        let tickPerSlot = slotTicks;
-        if (has32 || xs.length > slots) {
-          measureSlots = slots * 2; // 32分音符
-          tickPerSlot = slotTicks / 2;
-        }
-        const perQuarter = (measureSlots / slots) * 4; // 4分音符あたりのスロット数 (16分 = 1)
+        // 「3」の記号がある小節では 3連符も読めるように 1拍を 12 (32分があれば 24) に分けたグリッドで割り当てる
+        const triplets = beatUnit === 4 && m.triplets > 0;
+        const fine = has32 || xs.length > slots;
+        let spb = slotsPerBeat * (fine ? 2 : 1);
+        if (triplets) spb *= 3;
+        const measureSlots = (slots / slotsPerBeat) * spb;
+        const tickPerSlot = ticksPerBeat / spb;
         const values = onsets.map((o, i) => {
           if (beams[i] == null) return null;
           const open = o.notes.every((n) => n.kind === 'open');
-          if (beams[i] === 0) return open ? null : perQuarter;
-          const v = perQuarter / 2 ** beams[i];
+          if (beams[i] === 0) return open ? null : spb;
+          const v = spb / 2 ** beams[i]; // 8分 = 半拍
           return Number.isInteger(v) && v >= 1 ? v : null;
         });
-        const assigned = assignSlots(xs, { start, end: m.x1 }, measureSlots, (measureSlots / slots) * slotsPerBeat, st.space, values);
+        const assigned = assignSlots(xs, { start, end: m.x1 }, measureSlots, spb, st.space, values, { triplets, unit: spb / (fine ? 8 : 4) });
         const notes = [];
         onsets.forEach((o, i) => {
           for (const h of o.notes) {
@@ -80,9 +80,16 @@ export function buildScore(pages, opts = {}) {
           }
         });
         notes.sort((a, b) => a.tick - b.tick);
+        // 編集用のマス目: 3連符だけの小節は 3連のマス目にする
+        let grid = 4;
+        if (notes.some((n) => n.tick % 12)) {
+          if (notes.every((n) => n.tick % 16 === 0)) grid = 3;
+          else if (notes.every((n) => n.tick % 8 === 0)) grid = 6;
+          else if (notes.every((n) => n.tick % 6 === 0)) grid = 8;
+        }
         measures.push({
           notes,
-          grid: 4,
+          grid,
           source: {
             page: pageIndex,
             // ページに対する比率 (0..1)

@@ -136,3 +136,34 @@ describe('16th and 32nd notes', () => {
     expect(ticks(m, 'kick')).toEqual([16, 22]);
   });
 });
+
+// 3連符 (samples/triplets.ly)。3連8分 = 16tick、3連16分 = 8tick
+describe.each([200, 160])('triplets @%idpi', (dpi) => {
+  const png = PNG.sync.read(fs.readFileSync(new URL(`./fixtures/triplets-${dpi}.png`, import.meta.url)));
+  const score = buildScore([analyzePage(png.data, png.width, png.height)]);
+  const ticks = (m, inst) => m.notes.filter((n) => n.inst === inst).map((n) => n.tick);
+  it('reads 4 measures', () => expect(score.measures.length).toBe(4));
+  it('measure 1: triplet 8ths', () => {
+    const m = score.measures[0];
+    expect(ticks(m, 'hhc')).toEqual([0, 16, 32, 64, 80, 96, 112, 160, 176]);
+    expect(ticks(m, 'snare')).toEqual([48, 144]);
+    expect(ticks(m, 'kick')).toEqual([128]);
+  });
+  it('measure 2: straight and triplet mixed', () => {
+    const m = score.measures[1];
+    expect(ticks(m, 'hhc')).toEqual([0, 24]);
+    expect(ticks(m, 'snare')).toEqual([48, 60, 72, 84, 144]);
+    expect(ticks(m, 'kick')).toEqual([96, 112, 128]);
+  });
+  it('measure 3: triplet 16ths', () => {
+    const m = score.measures[2];
+    expect(ticks(m, 'snare')).toEqual([0, 8, 16, 24, 32, 40, 96, 112, 128, 168, 176, 184]);
+    expect(ticks(m, 'hhc')).toEqual([48, 72]);
+    expect(ticks(m, 'kick')).toEqual([144, 152, 160]);
+  });
+  it('measure 4: straight stays straight', () => {
+    const m = score.measures[3];
+    expect(ticks(m, 'snare')).toEqual([0, 24, 48, 72]);
+    expect(ticks(m, 'hhc')).toEqual([96, 108, 120, 132, 144]);
+  });
+});

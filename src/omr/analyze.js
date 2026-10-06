@@ -765,6 +765,67 @@ function makeHead(box, kind, staff) {
 }
 
 /** 段頭の音部記号・拍子記号の右端を推定する (五線の内側に収まる背の高い記号) */
+/**
+ * 3連符の「3」を探す。五線の上下 (五線から離れた所) にある数字くらいの大きさの部品のうち、
+ * 左側が上・中・下の3か所だけ黒く、右側が縦につながっている形を「3」とみなす
+ */
+export function findTripletMarks(bin, w, h, staff) {
+  const { top, bottom, space, left, right } = staff;
+  const rx0 = Math.max(0, Math.floor(left));
+  const rx1 = Math.min(w - 1, Math.ceil(right));
+  const marks = [];
+  for (const [ya, yb] of [
+    [top - space * 8, top - space * 0.25],
+    [bottom + space * 0.25, bottom + space * 8],
+  ]) {
+    const ry0 = Math.max(0, Math.floor(ya));
+    const ry1 = Math.min(h - 1, Math.ceil(yb));
+    if (ry1 <= ry0) continue;
+    for (const c of components(bin, w, { rx0, ry0, rx1, ry1 })) {
+      if (c.h < space * 0.8 || c.h > space * 2.2 || c.w < space * 0.45 || c.w > space * 1.5 || c.w > c.h) continue;
+      if (c.y0 <= ry0 || c.y1 >= ry1) continue;
+      if (isThree(bin, w, c)) marks.push({ x: (c.x0 + c.x1) / 2, y: (c.y0 + c.y1) / 2 });
+    }
+  }
+  return marks;
+}
+
+function isThree(bin, w, c) {
+  // 各行の左端・右端の位置 (部品の幅に対する割合)
+  const L = [];
+  const R = [];
+  for (let y = c.y0; y <= c.y1; y++) {
+    let l = -1;
+    let r = -1;
+    for (let x = c.x0; x <= c.x1; x++) {
+      if (bin[y * w + x]) {
+        if (l < 0) l = x;
+        r = x;
+      }
+    }
+    L.push(l < 0 ? 1 : (l - c.x0) / c.w);
+    R.push(r < 0 ? 0 : (r - c.x0 + 1) / c.w);
+  }
+  const n = L.length;
+  const part = (arr, a, b, fn) => fn(...arr.slice(Math.floor(n * a), Math.max(Math.floor(n * a) + 1, Math.ceil(n * b))));
+  // 左側に 2 つのくぼみ (上と下) があり、その間 (中央の横棒) と上下の端は左に張り出している
+  const topL = part(L, 0, 0.25, Math.min);
+  const gap1 = part(L, 0.15, 0.45, Math.max);
+  const midL = part(L, 0.4, 0.6, Math.min);
+  const gap2 = part(L, 0.55, 0.85, Math.max);
+  const botL = part(L, 0.75, 1, Math.min);
+  if (gap1 - Math.max(topL, midL) < 0.15 || gap2 - Math.max(midL, botL) < 0.15) return false;
+  // 一番下は丸く終わる (「2」のような全幅の横棒ではない)
+  const fill = (y) => {
+    let k = 0;
+    for (let x = c.x0; x <= c.x1; x++) k += bin[y * w + x];
+    return k / c.w;
+  };
+  if (Math.max(fill(c.y1), fill(c.y1 - 1)) > 0.75) return false;
+  // 右側はずっと右寄り (左が開いた形)
+  return part(R, 0.1, 0.9, Math.min) >= 0.5;
+}
+
 function headerEnd(comps, staff, firstBar) {
   const { left, top, bottom, space } = staff;
   let end = left + space * 2.5;
@@ -819,6 +880,12 @@ export function analyzePage(rgba, width, height) {
     const hEnd = headerEnd(comps, staff, firstBar);
     const heads = findHeads(clean, width, staff, region, noLines).filter((hd) => hd.x > hEnd);
 
+    const tripletMarks = findTripletMarks(bin, width, height, staff);
+    // 「3」の数字を符頭と読まないようにする
+    for (let i = heads.length - 1; i >= 0; i--) {
+      const hd = heads[i];
+      if (tripletMarks.some((t) => Math.abs(hd.x - t.x) < staff.space * 0.7 && Math.abs(hd.y - t.y) < staff.space * 0.9)) heads.splice(i, 1);
+    }
     // 小節の区切り
     const bounds = [];
     for (const b of bars) {
@@ -833,7 +900,8 @@ export function analyzePage(rgba, width, height) {
       const x0 = bounds[k];
       const x1 = bounds[k + 1];
       const notes = heads.filter((hd) => hd.x > x0 && hd.x < x1);
-      measures.push({ x0, x1, contentStart: k === 0 ? hEnd : x0, firstInSystem: k === 0, notes });
+      const triplets = tripletMarks.filter((t) => t.x > x0 && t.x < x1).length;
+      measures.push({ x0, x1, contentStart: k === 0 ? hEnd : x0, firstInSystem: k === 0, notes, triplets });
     }
     // 符頭が1つもない段頭の領域 (拍子記号だけの区間など) は捨てる
     if (measures.length > 1 && measures[0].notes.length === 0 && measures[0].x1 - hEnd < staff.space * 2) {

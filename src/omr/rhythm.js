@@ -23,17 +23,28 @@ export function clusterOnsets(notes, space) {
   return clusters;
 }
 
-// 拍の頭ほど音が置かれやすい (16分グリッド、1拍=4スロット想定)
+// 拍の中の位置ごとの置かれやすさ。1拍を slotsPerBeat 個に分けたときの位置 (拍内の割合) で決める。
+// 3連の位置は普通の位置より少しだけ選ばれにくくして、どちらとも取れるときは普通のリズムにする
 function positionPenalty(slot, slotsPerBeat) {
-  if (slot % slotsPerBeat === 0) return 0;
-  if (slotsPerBeat % 2 === 0 && slot % (slotsPerBeat / 2) === 0) return 0.25;
-  return 0.7;
+  const r = slot % slotsPerBeat;
+  if (r === 0) return 0;
+  const f = r / slotsPerBeat;
+  const is = (den) => Math.abs(f * den - Math.round(f * den)) < 1e-9;
+  if (is(2)) return 0.25;
+  if (is(4)) return 0.7;
+  if (is(3)) return 1.6;
+  if (is(8)) return 0.7;
+  if (is(6)) return 2.2;
+  return Infinity;
 }
 
 // よく使う音価ほど選ばれやすい
 function durationPenalty(d, slotsPerBeat) {
-  const common = new Set([1, 2, 3, 4, 6, 8, 12, 16].map((v) => (v * slotsPerBeat) / 4));
-  return common.has(d) ? 0 : 0.6;
+  const q = (d * 4) / slotsPerBeat; // 16分音符いくつ分か
+  if ([1, 2, 3, 4, 6, 8, 12, 16].some((v) => Math.abs(q - v) < 1e-9)) return 0;
+  const t = (d * 3) / slotsPerBeat; // 3連8分いくつ分か
+  if ([0.5, 1, 2].some((v) => Math.abs(t - v) < 1e-9)) return 0.6;
+  return 0.6;
 }
 
 /**
@@ -48,15 +59,26 @@ function durationPenalty(d, slotsPerBeat) {
  * values[i]: 連桁・旗から読んだ音価 (スロット数)。null なら不明。
  * 次の音までの長さが音価と同じなら自然、長ければ (後ろに休符がある) 少し不自然、短ければありえない
  */
-function valuePenalty(v, d) {
-  if (v == null) return 0;
+function straightValuePenalty(v, d) {
   if (d === v) return 0;
   if (d === v * 1.5) return 0.4; // 付点
   if (d > v) return 1.2;
   return 9;
 }
 
-export function assignSlots(xs, m, slots, slotsPerBeat, space, values = []) {
+// triplets のときは、連桁の本数が同じ 3連符 (長さ 2/3) とも読める
+function valuePenalty(v, d, triplets, slotsPerBeat) {
+  if (v == null) return 0;
+  const p = straightValuePenalty(v, d);
+  // 3連の4分音符はまれなので、連桁・旗のある音符だけ 3連とも読む
+  if (!triplets || v >= slotsPerBeat) return p;
+  const tv = (v * 2) / 3;
+  if (!Number.isInteger(tv)) return p;
+  const tp = d === tv ? 1.0 : d > tv && d % tv === 0 ? 1.2 : 9;
+  return Math.min(p, tp);
+}
+
+export function assignSlots(xs, m, slots, slotsPerBeat, space, values = [], { triplets = false, unit = 1 } = {}) {
   const n = xs.length;
   if (n === 0) return [];
   if (n > slots) {
@@ -74,15 +96,18 @@ export function assignSlots(xs, m, slots, slotsPerBeat, space, values = []) {
   const leadLog = allowLeadRest ? Math.log(lead) : 0;
   const sigma = 0.16;
   const alphas = [0.35, 0.5, 0.7, 0.9, 1.2, 1.6];
-  const minLog = Math.min(...logGaps, allowLeadRest ? leadLog : Infinity) - Math.log(1 + 1.6 * Math.log2(slots));
+  const minLog = Math.min(...logGaps, allowLeadRest ? leadLog : Infinity) - Math.log(1 + 1.6 * Math.log2(slots / unit));
   const maxLog = Math.max(...logGaps);
   const bSteps = 36;
 
+  const endWeight = triplets ? 0.3 : 1;
+  const posPen = Array.from({ length: slots }, (_, t) => positionPenalty(t, slotsPerBeat));
   let best = { cost: Infinity, slotsOut: null };
   const INF = Infinity;
   for (const alpha of alphas) {
     const logS = new Float64Array(slots + 1);
-    for (let d = 1; d <= slots; d++) logS[d] = Math.log(1 + (alpha * Math.log(d)) / LOG2);
+    // unit スロットを基準の長さ (間隔の増え始め) とする
+    for (let d = 1; d <= slots; d++) logS[d] = Math.log(Math.max(0.05, 1 + (alpha * Math.log(d / unit)) / LOG2));
     for (let bi = 0; bi <= bSteps; bi++) {
       const logB = minLog + ((maxLog - minLog) * bi) / bSteps;
       // dp[i][s] = 発音 i をスロット s に置いたときの最小コスト
@@ -91,7 +116,7 @@ export function assignSlots(xs, m, slots, slotsPerBeat, space, values = []) {
       for (let s = 0; s < slots; s++) {
         let c;
         if (s === 0) c = allowLeadRest ? 2.0 : 0;
-        else if (allowLeadRest) c = ((leadLog - logB - logS[s]) / sigma) ** 2 + positionPenalty(s, slotsPerBeat) + 0.5;
+        else if (allowLeadRest && posPen[s] !== Infinity) c = ((leadLog - logB - logS[s]) / sigma) ** 2 + posPen[s] + 0.5;
         else continue;
         dp[s] = c;
       }
@@ -100,13 +125,14 @@ export function assignSlots(xs, m, slots, slotsPerBeat, space, values = []) {
           const base = dp[i * slots + s];
           if (base === INF) continue;
           for (let t = s + 1; t < slots; t++) {
+            if (posPen[t] === Infinity) continue;
             const d = t - s;
             const c =
               base +
               ((logGaps[i] - logB - logS[d]) / sigma) ** 2 +
-              positionPenalty(t, slotsPerBeat) +
+              posPen[t] +
               durationPenalty(d, slotsPerBeat) +
-              valuePenalty(values[i], d);
+              valuePenalty(values[i], d, triplets, slotsPerBeat);
             const k = (i + 1) * slots + t;
             if (c < dp[k]) {
               dp[k] = c;
@@ -120,7 +146,8 @@ export function assignSlots(xs, m, slots, slotsPerBeat, space, values = []) {
         const base = dp[(n - 1) * slots + s];
         if (base === INF) continue;
         const d = slots - s;
-        const c = base + ((logGaps[n - 1] - logB - logS[d]) / sigma) ** 2 + durationPenalty(d, slotsPerBeat) * 0.5 + valuePenalty(values[n - 1], d);
+        // 最後の音から小節線までの間隔は楽譜ソフトによってまちまちなので、3連符もありうるときは弱めに見る
+        const c = base + endWeight * ((logGaps[n - 1] - logB - logS[d]) / sigma) ** 2 + durationPenalty(d, slotsPerBeat) * 0.5 + valuePenalty(values[n - 1], d, triplets, slotsPerBeat);
         if (c < best.cost) {
           const out = new Array(n);
           let cur = s;

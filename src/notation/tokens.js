@@ -90,6 +90,24 @@ export function voiceTokens(notes, timeSig, voice) {
     const offsets = [...byOffset.keys()].sort((a, b) => a - b);
     const u = chooseUnit(len, offsets);
     const triplet = (PPQ % u !== 0 || u === PPQ / 3 || u === PPQ / 6) && len === PPQ;
+    if (triplet && u === PPQ / 6) {
+      // 3連16分は半拍ずつ 3 つのまとまりにする (半拍まるごと休みなら普通の 8分休符)
+      const half = PPQ / 2;
+      for (let h = 0; h < 2; h++) {
+        const sub = offsets.filter((o) => o >= h * half && o < (h + 1) * half);
+        const gid = gi + h / 2;
+        if (!sub.length) {
+          tokens.push({ ticks: half, duration: '8', rest: true, keys: [], insts: [], group: gid });
+          continue;
+        }
+        for (let k = 0; k < 3; k++) {
+          const at = h * half + k * u;
+          const insts = byOffset.has(at) ? [...new Set(byOffset.get(at))] : [];
+          tokens.push(tripletToken(u, !insts.length, insts, gid));
+        }
+      }
+      continue;
+    }
     const slots = Math.round(len / u);
     // 位置ごとに音 or 休符を並べる
     let pos = 0;
