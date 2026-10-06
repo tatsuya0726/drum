@@ -275,16 +275,24 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     try {
       const texts = [];
       for (const file of files) {
-        if (/\.zip$/i.test(file.name) || file.type.includes('zip')) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        // zip は先頭が "PK" (名前や種類が変わっていても中身で見分ける)
+        if (bytes[0] === 0x50 && bytes[1] === 0x4b) {
           const { unzipSync, strFromU8 } = await import('fflate');
-          const entries = unzipSync(new Uint8Array(await file.arrayBuffer()));
-          for (const [name, data] of Object.entries(entries)) if (/\.json$/i.test(name) && !name.startsWith('__MACOSX')) texts.push(strFromU8(data));
+          const entries = unzipSync(bytes);
+          for (const [name, data] of Object.entries(entries)) if (/\.json$/i.test(name) && !name.includes('__MACOSX')) texts.push(strFromU8(data));
         } else {
-          texts.push(await file.text());
+          texts.push(new TextDecoder().decode(bytes));
         }
       }
       if (!texts.length) throw new Error('フレーズ集の JSON が見つかりません');
-      const phrases = texts.flatMap((t) => parsePack(t));
+      const phrases = texts.flatMap((t) => {
+        try {
+          return parsePack(t);
+        } catch {
+          throw new Error('フレーズ集のファイル (.json か .zip) を選んでください');
+        }
+      });
       const groups = new Set(phrases.map((p) => p.group));
       const old = listDocs().filter((d) => groups.has(d.group));
       const oldIds = new Map(old.map((d) => [`${d.group}\n${d.title}`, d.id]));
