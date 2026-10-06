@@ -127,9 +127,11 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     const imported = mine.filter((p) => p.group);
 
     // 種類ごとのタブ (基本ビート・16ビート…・マイフレーズ・取り込んだ教本)
-    const tabs = CATEGORIES.map((c) => ({ id: c.id, name: c.name, items: presets.filter((p) => p.category === c.id) }));
-    if (own.length) tabs.push({ id: 'mine', name: 'マイフレーズ', items: own });
+    // 教本は一番よく使うので先頭に置く
+    const tabs = [];
     if (imported.length) tabs.push({ id: 'books', name: '教本', items: imported });
+    if (own.length) tabs.push({ id: 'mine', name: 'マイフレーズ', items: own });
+    tabs.push(...CATEGORIES.map((c) => ({ id: c.id, name: c.name, items: presets.filter((p) => p.category === c.id) })));
     if (!tabs.some((t) => t.id === hub.tab)) hub.tab = tabs[0].id;
     const tab = tabs.find((t) => t.id === hub.tab);
 
