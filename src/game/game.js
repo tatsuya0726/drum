@@ -396,7 +396,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     const st = allStats().phrases[p.id];
     $('pv-title').textContent = p.title;
     const stars = starsOf(st?.best ?? 0);
-    $('pv-meta').innerHTML = `${p.level ? `<span class="pc-level">Lv${p.level}</span>` : '<span class="pc-level mine">MY</span>'}
+    $('pv-meta').innerHTML = `${p.level ? `<span class="pc-level">Lv${p.level}</span>` : `<span class="pc-level mine">${p.group ? esc(p.kind ?? 'フレーズ') : 'MY'}</span>`}
       <span class="pc-stars ${stars ? '' : 'none'}">${starStr(stars)}</span>
       <span>${st ? `ベスト ${st.best}点 (${st.bestBpm}BPM) · 録音 ${st.takes}回${st.maxBpmCleared ? ` · 80点以上の最速 ${st.maxBpmCleared}BPM` : ''}` : 'まだ録音がありません'}</span>`;
     $('pv-edit').textContent = p.mine ? '編集' : 'コピーして編集';
