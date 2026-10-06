@@ -160,5 +160,6 @@ export function assignSlots(xs, m, slots, slotsPerBeat, space, values = [], { tr
       }
     }
   }
-  return best.slotsOut;
+  // 当てはまる並べ方が見つからないときは等間隔で丸める
+  return best.slotsOut ?? xs.map((_, i) => Math.min(slots - 1, Math.round((i * slots) / n)));
 }

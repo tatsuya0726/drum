@@ -782,7 +782,7 @@ export function findTripletMarks(bin, w, h, staff) {
     const ry1 = Math.min(h - 1, Math.ceil(yb));
     if (ry1 <= ry0) continue;
     for (const c of components(bin, w, { rx0, ry0, rx1, ry1 })) {
-      if (c.h < space * 0.8 || c.h > space * 2.2 || c.w < space * 0.45 || c.w > space * 1.5 || c.w > c.h) continue;
+      if (c.h < space * 0.8 || c.h > space * 2.2 || c.w < space * 0.45 || c.w > space * 1.5 || c.w > c.h || c.w < c.h * 0.45) continue;
       if (c.y0 <= ry0 || c.y1 >= ry1) continue;
       if (isThree(bin, w, c)) marks.push({ x: (c.x0 + c.x1) / 2, y: (c.y0 + c.y1) / 2 });
     }
@@ -880,7 +880,8 @@ export function analyzePage(rgba, width, height) {
     const hEnd = headerEnd(comps, staff, firstBar);
     const heads = findHeads(clean, width, staff, region, noLines).filter((hd) => hd.x > hEnd);
 
-    const tripletMarks = findTripletMarks(bin, width, height, staff);
+    // 「3」は音符のまとまりの上下に書かれる。近くに符頭のないもの (練習番号の数字など) は除く
+    const tripletMarks = findTripletMarks(bin, width, height, staff).filter((t) => heads.some((hd) => Math.abs(hd.x - t.x) < staff.space * 2.2 && Math.abs(hd.y - t.y) > staff.space * 0.9));
     // 「3」の数字を符頭と読まないようにする
     for (let i = heads.length - 1; i >= 0; i--) {
       const hd = heads[i];
@@ -908,7 +909,7 @@ export function analyzePage(rgba, width, height) {
       measures.shift();
       measures[0].firstInSystem = true;
     }
-    result.push({ ...staff, measures, headerEnd: hEnd });
+    result.push({ ...staff, measures, headerEnd: hEnd, tripletMarks });
   }
   return { width, height, skew, staves: result };
 }
