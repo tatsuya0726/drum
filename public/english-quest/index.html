@@ -18,16 +18,21 @@ html,body{margin:0;height:100%;background:#000;color:#fff;font-family:'DotGothic
 #msg .sub{font-size:.85em;opacity:.85}
 #msg .more{position:absolute;right:calc(var(--s)*10px);bottom:calc(var(--s)*4px);animation:bl .7s steps(2) infinite}
 @keyframes bl{50%{opacity:0}}
-#cmds{flex:1;min-height:0;overflow:auto;display:grid;gap:2px 6px;align-content:start;margin:0 6px;--s:1.6}
-.btn{background:none;border:0;color:#fff;font:inherit;font-size:16px;padding:9px 8px 9px 24px;text-align:left;border-radius:4px;position:relative;cursor:pointer}
+/* 縦長のスマホ: メッセージを画面の下側 (ゲーム画面の下) に出して、すきまを使う */
+@media (min-height:760px) and (max-aspect-ratio:3/4){
+  #stage{overflow:visible}
+  #msg{top:calc(100% + 8px);bottom:auto;left:0;right:0;min-height:calc(var(--s)*66px);font-size:calc(var(--s)*12px)}
+}
+#cmds{flex:none;max-height:46vh;overflow:auto;display:grid;gap:2px 6px;align-content:start;margin:auto 6px 0;--s:1.6}
+.btn{background:none;border:0;color:#fff;font:inherit;font-size:16px;padding:12px 8px 12px 24px;text-align:left;border-radius:4px;position:relative;cursor:pointer}
 .btn:hover,.btn:active{background:rgba(255,255,255,.18)}
 .btn:hover::before,.btn:active::before{content:'▶';position:absolute;left:6px}
 .btn.dis{opacity:.4;pointer-events:none}
 .spk{background:#f4f4f4;color:#00007c;border:0;border-radius:6px;font:inherit;font-size:.9em;padding:0 8px;margin-left:6px;cursor:pointer}
 .bar{position:absolute;left:calc(var(--s)*8px);right:calc(var(--s)*8px);top:calc(var(--s)*3px);height:calc(var(--s)*4px);background:#000;border:1px solid #fff}
 .bar>i{display:block;height:100%;background:#4f4;width:100%}
-#fieldUI{display:none;flex:1;align-items:center;justify-content:space-between;padding:0 10px;gap:8px}
-#dpad{display:grid;grid-template-columns:repeat(3,54px);grid-template-rows:repeat(3,50px);gap:3px}
+#fieldUI{display:none;flex:none;margin-top:auto;align-items:center;justify-content:space-between;padding:0 10px 4px;gap:8px}
+#dpad{display:grid;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(3,54px);gap:3px}
 #dpad button,#fbtns button,#bA{background:linear-gradient(#0a0a96,#000066);border:3px solid #f4f4f4;border-radius:10px;color:#fff;font:inherit;font-size:20px}
 #dpad button:active,#fbtns button:active,#bA:active{background:#38f}
 #dpad .u{grid-column:2;grid-row:1}#dpad .l{grid-column:1;grid-row:2}#dpad .r{grid-column:3;grid-row:2}#dpad .d{grid-column:2;grid-row:3}
@@ -189,7 +194,62 @@ const mirror = (pts, w) => pts.map(([x, y]) => [w - x, y]);
 const ell = (cx, cy, rx, ry) => (x, y) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 1;
 const anyOf = (...fs) => (x, y) => fs.some(f => f(x, y));
 function eye(g, x, y, rw, rh, pupil = '#101028') { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x, y, rw, rh, 0, 0, 7); g.fill(); Rc(g, Math.round(x) - 1, Math.round(y) - 1, 2, Math.max(2, rh), pupil); Px(g, Math.round(x) - 1, Math.round(y) - 1, '#fff'); }
+
+Object.assign(RAMPS, {
+  bone: ['#4a4430', '#8c8466', '#c8c0a0', '#ece8d0', '#ffffff'], brown: ['#2c1808', '#583410', '#8a5420', '#b87c38', '#e0b068'], robe: ['#0c0c30', '#202068', '#3838a8', '#6060d8', '#a0a0ff'],
+  stone: ['#24242e', '#4c4c5c', '#7c7c8e', '#acacc0', '#dcdcf0'], octo: ['#3c0a28', '#8a1850', '#c83878', '#f070a0', '#ffc0d8'], petal: ['#500a20', '#a02048', '#e04070', '#ff80a0', '#ffd0dc'], gold: ['#6a4800', '#b08410', '#e0b830', '#fff060', '#ffffe0']
+});
+const rrect = (x0, y0, x1, y1, r) => (x, y) => x > x0 && x < x1 && y > y0 && y < y1 && !((x < x0 + r || x > x1 - r) && (y < y0 + r || y > y1 - r) && Math.hypot(Math.min(x - x0 - r, 0) + Math.max(x - x1 + r, 0), Math.min(y - y0 - r, 0) + Math.max(y - y1 + r, 0)) > r);
+function extraMonster(kind, ramp) {
+  const R = RAMPS[ramp];
+  if (kind === 'skeleton') return outline(art(48, 56, (g, w, h) => {
+    const B = RAMPS.bone, bones = (...fs) => shade(g, maskOf(w, h, anyOf(...fs)), w, h, B, { R: 3, k: 1.2 });
+    bones(ell(24, 14, 11, 10.5), rrect(17, 18, 31, 26, 3));
+    bones(rrect(22, 25, 26, 42, 1), ...[0, 1, 2, 3].map(i => rrect(15, 27 + i * 4, 33, 29.5 + i * 4, 1)), rrect(15, 41, 33, 46, 3), rrect(11, 28, 15, 44, 1.5), rrect(33, 28, 37, 44, 1.5), rrect(17, 46, 22, 56, 1.5), rrect(26, 46, 31, 56, 1.5));
+    [[19, 14], [29, 14]].forEach(([ex, ey]) => { g.fillStyle = '#10080c'; g.beginPath(); g.ellipse(ex, ey, 3, 3.6, 0, 0, 7); g.fill(); Rc(g, ex - 1, ey - 1, 2, 2, '#e02020'); });
+    Rc(g, 23, 18, 2, 3, '#2a2418'); for (let i = 0; i < 5; i++) Rc(g, 18 + i * 3, 23, 1, 3, '#2a2418'); Rc(g, 18, 22, 13, 1, '#2a2418');
+    shade(g, maskOf(w, h, poly([[38, 30], [44, 4], [47, 5], [42, 32]])), w, h, RAMPS.metal, { R: 2, k: 1 }); Rc(g, 36, 31, 8, 2, RAMPS.brown[2]);
+  }), .25);
+  if (kind === 'goblin') return outline(art(48, 50, (g, w, h) => {
+    const EL = poly([[13, 13], [1, 8], [3, 16], [13, 19]]), ER = poly(mirror([[13, 13], [1, 8], [3, 16], [13, 19]], 48));
+    shade(g, maskOf(w, h, (x, y) => EL(x, y) || ER(x, y)), w, h, R, { R: 3, k: 1.1 });
+    shade(g, maskOf(w, h, anyOf(ell(24, 15, 11, 10), ell(24, 35, 12, 13), ell(10, 33, 4, 9), ell(38, 33, 4, 9), rrect(15, 42, 22, 50, 2), rrect(26, 42, 33, 50, 2))), w, h, R, { R: 5, k: 1.4 });
+    shade(g, maskOf(w, h, rrect(14, 40, 34, 45, 2)), w, h, RAMPS.brown, { R: 2, k: 1 });
+    shade(g, maskOf(w, h, poly([[40, 30], [44, 5], [48, 7], [44, 34]])), w, h, RAMPS.brown, { R: 3, k: 1.1 });
+    [[20, 14], [28, 14]].forEach(([ex, ey]) => { Rc(g, ex - 2, ey - 2, 4, 3, '#ffe040'); Rc(g, ex - 1, ey - 1, 2, 2, '#b01010'); });
+    Rc(g, 19, 20, 10, 2, '#200808'); Rc(g, 20, 19, 1, 2, '#fff'); Rc(g, 27, 19, 1, 2, '#fff'); line(g, 18, 11, 22, 12, '#103010'); line(g, 30, 11, 26, 12, '#103010');
+  }), .25);
+  if (kind === 'octopus') return outline(art(52, 52, (g, w, h) => {
+    const tent = []; for (let i = 0; i < 6; i++) { const x0 = 11 + i * 6, dir = (i - 2.5) * .9; for (let k = 0; k < 8; k++) tent.push(ell(x0 + dir * k * .8 + Math.sin(k * .9 + i) * 2.2, 32 + k * 2.6, 3.4 - k * .3, 3.2)); }
+    shade(g, maskOf(w, h, anyOf(ell(26, 20, 16, 15), ...tent)), w, h, R, { R: 5, k: 1.3 });
+    [[19, 21], [33, 21]].forEach(([ex, ey]) => eye(g, ex, ey, 3.4, 4.2)); Rc(g, 23, 30, 6, 2, '#300818'); Rc(g, 14, 12, 5, 2, RAMPS.octo[4]); Rc(g, 13, 14, 2, 2, RAMPS.octo[4]);
+  }), .25);
+  if (kind === 'golem') return outline(art(56, 58, (g, w, h) => {
+    shade(g, maskOf(w, h, anyOf(rrect(12, 20, 44, 46, 5), rrect(19, 6, 37, 22, 4), rrect(1, 22, 12, 46, 4), rrect(44, 22, 55, 46, 4), rrect(15, 45, 27, 58, 3), rrect(29, 45, 41, 58, 3))), w, h, R, { R: 5, k: 1.5 });
+    [[24, 13], [32, 13]].forEach(([ex, ey]) => { Rc(g, ex - 2, ey - 1, 4, 3, '#ffb020'); Px(g, ex - 1, ey, '#fff'); }); Rc(g, 23, 18, 10, 2, RAMPS.stone[0]);
+    line(g, 20, 24, 26, 34, RAMPS.stone[0]); line(g, 26, 34, 24, 42, RAMPS.stone[0]); line(g, 36, 26, 32, 36, RAMPS.stone[0]); line(g, 5, 28, 8, 40, RAMPS.stone[0]);
+    [[16, 22], [38, 24], [3, 24]].forEach(([x, y]) => { Rc(g, x, y, 4, 2, '#3a8a3a'); Rc(g, x + 1, y - 1, 2, 1, '#58b058'); });
+  }), .25);
+  if (kind === 'plant') return outline(art(48, 56, (g, w, h) => {
+    const LL = poly([[22, 44], [4, 36], [2, 44], [20, 50]]), LR = poly(mirror([[22, 44], [4, 36], [2, 44], [20, 50]], 44));
+    shade(g, maskOf(w, h, (x, y) => LL(x, y) || LR(x, y) || ell(22, 40, 4, 14)(x, y) || rrect(15, 50, 29, 56, 2)(x, y)), w, h, RAMPS.green, { R: 3, k: 1.2 });
+    shade(g, maskOf(w, h, ell(22, 20, 17, 16)), w, h, R, { R: 6, k: 1.3 });
+    [[14, 12], [30, 12], [22, 6]].forEach(([x, y]) => { g.fillStyle = RAMPS.petal[4]; g.beginPath(); g.ellipse(x, y, 2.4, 2, 0, 0, 7); g.fill(); });
+    eye(g, 15, 17, 3, 3.6); eye(g, 29, 17, 3, 3.6);
+    g.fillStyle = '#300410'; g.beginPath(); g.ellipse(22, 27, 10, 6, 0, 0, 7); g.fill(); for (let i = 0; i < 5; i++) { Rc(g, 14 + i * 4, 22, 2, 3, '#fff'); Rc(g, 15 + i * 4, 30, 2, 2, '#fff'); } Rc(g, 18, 26, 8, 2, '#e86078');
+  }), .25);
+  if (kind === 'wizard') return outline(art(52, 58, (g, w, h) => {
+    shade(g, maskOf(w, h, anyOf(poly([[26, 22], [8, 58], [44, 58]]), ell(26, 22, 10, 9), poly([[26, 0], [14, 15], [38, 15]]), ell(10, 38, 4, 6), ell(42, 38, 4, 6))), w, h, R, { R: 5, k: 1.3 });
+    g.fillStyle = '#080818'; g.beginPath(); g.ellipse(26, 22, 6.5, 6, 0, 0, 7); g.fill(); [[23, 22], [29, 22]].forEach(([ex, ey]) => Rc(g, ex - 1, ey - 1, 3, 2, '#ffe040'));
+    Rc(g, 15, 14, 22, 2, RAMPS.gold[2]); Rc(g, 22, 8, 2, 2, RAMPS.gold[3]);
+    line(g, 6, 20, 6, 58, RAMPS.brown[3]); line(g, 7, 20, 7, 58, RAMPS.brown[1]); g.fillStyle = '#80f0ff'; g.beginPath(); g.arc(6.5, 16, 4, 0, 7); g.fill(); Rc(g, 5, 14, 2, 2, '#fff');
+    Rc(g, 8, 36, 4, 4, '#f0c098'); Rc(g, 40, 36, 4, 4, '#f0c098');
+  }), .25);
+  if (kind === 'kslime') { const b = monsterArt('slime', ramp); return art(b.width, b.height + 10, g => { g.drawImage(b, 0, 10); Rc(g, 13, 4, 16, 8, RAMPS.gold[2]); Rc(g, 13, 4, 16, 2, RAMPS.gold[3]); [[13, 1], [20, 0], [27, 1]].forEach(([x, y]) => { Rc(g, x, y, 3, 5, RAMPS.gold[2]); Rc(g, x, y, 3, 1, RAMPS.gold[4]); }); Rc(g, 17, 7, 2, 2, '#e02040'); Rc(g, 23, 7, 2, 2, '#2060e0'); Rc(g, 12, 10, 18, 2, RAMPS.gold[0]); }); }
+  return null;
+}
 function monsterArt(kind, ramp) {
+  const X = extraMonster(kind, ramp); if (X) return X;
   const R = RAMPS[ramp];
   if (kind === 'slime') return outline(art(40, 36, (g, w, h) => {
     shade(g, maskOf(w, h, anyOf(ell(20, 25, 17, 10.5), ell(20, 15, 9, 9), ell(20, 7, 4, 6))), w, h, R, { R: 5, k: 1.5 });
@@ -235,14 +295,31 @@ function monsterArt(kind, ramp) {
 }
 const enemyArt = {};
 function enemyImg(def, white) {
-  const k = def.name; if (!enemyArt[k]) enemyArt[k] = monsterArt(def.kind, def.ramp);
+  const k = def.name; if (def.kind === 'img') { if (!def.canvas) return spriteCache0 || (spriteCache0 = monsterArt('slime', 'blue')); enemyArt[k] = def.canvas; }
+  if (!enemyArt[k]) enemyArt[k] = monsterArt(def.kind, def.ramp);
   if (!white) return enemyArt[k]; const wk = k + '#w'; return enemyArt[wk] || (enemyArt[wk] = whiteOf(enemyArt[k]));
 }
+let spriteCache0 = null;
 const ENEMIES = [
-  [{ name: 'スライム', kind: 'slime', ramp: 'blue', hp: 22, atk: 5, exp: 10, gold: 5, tiers: [1] }, { name: 'ドラキー', kind: 'bat', ramp: 'purple', hp: 26, atk: 6, exp: 12, gold: 6, tiers: [1] }],
-  [{ name: 'ゴースト', kind: 'ghost', ramp: 'ghost', hp: 42, atk: 9, exp: 20, gold: 10, tiers: [1, 2] }, { name: 'ベビーサタン', kind: 'slime', ramp: 'red', hp: 46, atk: 10, exp: 22, gold: 12, tiers: [2] }, { name: 'おばけキノコ', kind: 'mush', ramp: 'cap', hp: 50, atk: 11, exp: 25, gold: 12, tiers: [2] }],
-  [{ name: 'ブラックゴースト', kind: 'ghost', ramp: 'dark', hp: 72, atk: 15, exp: 38, gold: 20, tiers: [2, 3] }, { name: 'メタルスライム', kind: 'slime', ramp: 'metal', hp: 34, atk: 8, exp: 110, gold: 40, tiers: [3], rare: true }, { name: 'ダークドラキー', kind: 'bat', ramp: 'dark', hp: 82, atk: 17, exp: 42, gold: 22, tiers: [3] }]
+  [{ name: 'スライム', kind: 'slime', ramp: 'blue', hp: 22, atk: 5, exp: 10, gold: 5, tiers: [1] }, { name: 'ドラキー', kind: 'bat', ramp: 'purple', hp: 26, atk: 6, exp: 12, gold: 6, tiers: [1] },
+    { name: 'ひとくいばな', kind: 'plant', ramp: 'petal', hp: 28, atk: 6, exp: 13, gold: 7, tiers: [1] }, { name: 'ゴブリン', kind: 'goblin', ramp: 'green', hp: 30, atk: 7, exp: 15, gold: 8, tiers: [1] }],
+  [{ name: 'ゴースト', kind: 'ghost', ramp: 'ghost', hp: 42, atk: 9, exp: 20, gold: 10, tiers: [1, 2] }, { name: 'ベビーサタン', kind: 'slime', ramp: 'red', hp: 46, atk: 10, exp: 22, gold: 12, tiers: [2] }, { name: 'おばけキノコ', kind: 'mush', ramp: 'cap', hp: 50, atk: 11, exp: 25, gold: 12, tiers: [2] },
+    { name: 'ホネホネ', kind: 'skeleton', ramp: 'bone', hp: 56, atk: 12, exp: 28, gold: 14, tiers: [2] }, { name: 'オクトパス', kind: 'octopus', ramp: 'octo', hp: 54, atk: 11, exp: 26, gold: 13, tiers: [1, 2], sc: 1.8 }],
+  [{ name: 'ブラックゴースト', kind: 'ghost', ramp: 'dark', hp: 72, atk: 15, exp: 38, gold: 20, tiers: [2, 3] }, { name: 'メタルスライム', kind: 'slime', ramp: 'metal', hp: 34, atk: 8, exp: 110, gold: 40, tiers: [3], rare: true }, { name: 'ダークドラキー', kind: 'bat', ramp: 'dark', hp: 82, atk: 17, exp: 42, gold: 22, tiers: [3] },
+    { name: 'ストーンゴーレム', kind: 'golem', ramp: 'stone', hp: 115, atk: 19, exp: 55, gold: 28, tiers: [3], sc: 1.7 }, { name: 'ダークメイジ', kind: 'wizard', ramp: 'robe', hp: 92, atk: 21, exp: 58, gold: 30, tiers: [2, 3], sc: 1.7 },
+    { name: 'キングスライム', kind: 'kslime', ramp: 'blue', hp: 130, atk: 17, exp: 70, gold: 45, tiers: [3], sc: 2.5 }]
 ];
+
+/* 画像から作った敵: monsters/monsters.json (リポジトリ同梱) と localStorage (pixelize.html で追加) を読みこむ */
+function addImageMonster(m) {
+  const def = { name: m.name, kind: 'img', hp: m.hp || 40, atk: m.atk || 8, exp: m.exp || 20, gold: m.gold || 10, tiers: m.tiers || [Math.min(3, (m.zone || 0) + 1)], sc: m.sc || 2, canvas: null };
+  const img = new Image(); img.onload = () => { def.canvas = art(img.naturalWidth, img.naturalHeight, g => g.drawImage(img, 0, 0)); }; img.src = m.src;
+  ENEMIES[clamp(m.zone || 0, 0, 2)].push(def);
+}
+function loadImageMonsters() {
+  try { (JSON.parse(localStorage.getItem('english_quest_custom_monsters')) || []).forEach(addImageMonster); } catch (e) { }
+  fetch('monsters/monsters.json').then(r => r.ok ? r.json() : []).then(list => list.forEach(m => addImageMonster({ ...m, src: 'monsters/' + m.file }))).catch(() => { });
+}
 const BOSS = { name: 'ワードドラゴン', kind: 'dragon', ramp: 'green', hp: 300, atk: 22, exp: 300, gold: 300, tiers: [4, 3], boss: true };
 
 /* ---------------------------------------------------------------- 地形パレット */
@@ -954,8 +1031,8 @@ function text(t, x, y, size = 10, color = '#fff', align = 'left') {
 }
 function goldWin() { win(W - 62, 4, 58, 20); text('G', W - 56, 9, 10, '#fff'); text(String(S.gold), W - 10, 9, 10, '#fff', 'right'); }
 function drawStatus(x, y) {
-  win(x, y, 76, 46); text('ゆうしゃ', x + 6, y + 4, 9, '#ffe888'); text(`Lv ${S.lv}`, x + 6, y + 15, 9);
-  text(`HP ${S.hp}/${maxHpOf(S.lv)}`, x + 6, y + 25, 9, S.hp < maxHpOf(S.lv) * .3 ? '#ff9090' : '#fff'); text(`MP ${S.mp}/${maxMpOf(S.lv)}`, x + 6, y + 35, 9, '#90d0ff');
+  win(x, y, 80, 58); text('ゆうしゃ', x + 7, y + 5, 9, '#ffe888'); text(`Lv ${S.lv}`, x + 7, y + 17, 9);
+  text(`HP ${S.hp}/${maxHpOf(S.lv)}`, x + 7, y + 29, 9, S.hp < maxHpOf(S.lv) * .3 ? '#ff9090' : '#fff'); text(`MP ${S.mp}/${maxMpOf(S.lv)}`, x + 7, y + 41, 9, '#90d0ff');
 }
 function drawChar(name, dir, px, py, camX, camY, moving, t, bobPhase) {
   const f = charFrames(name)[dir], fi = moving ? (t < .5 ? 1 : 2) : 0, x = Math.round(px - camX) - 1, y = Math.round(py - camY) + 15 - f[fi].height;
@@ -993,7 +1070,7 @@ function drawBattle() {
   ctx.drawImage(buildBG(z), 0, 0);
   // きらめき
   const tw = Math.floor(time * 2) % 3; ctx.fillStyle = '#fff'; const sx = z >= 2 ? 200 : 178, sy = 54; ctx.fillRect(sx, sy - 5 - tw, 1, 11 + tw * 2); ctx.fillRect(sx - 5 - tw, sy, 11 + tw * 2, 1); ctx.fillRect(sx - 1, sy - 1, 3, 3);
-  const spr = enemyImg(e.def), sc = e.def.boss ? 1.55 : 2, sw = spr.width * sc, sh = spr.height * sc, cx = W / 2, cy = e.def.boss ? 88 : 96;
+  const spr = enemyImg(e.def), sc = e.def.boss ? 1.55 : (e.def.sc || 2), sw = spr.width * sc, sh = spr.height * sc, cx = W / 2, cy = e.def.boss ? 88 : 96;
   ctx.globalAlpha = e.alpha; ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.beginPath(); ctx.ellipse(cx, cy + sh / 2 + 3, sw / 2.6, 6, 0, 0, 7); ctx.fill();
   const flick = B.fx && B.fx.t === 'slash' && B.fx.p > .5 && Math.floor(B.fx.p * 20) % 2;
   ctx.drawImage(flick ? enemyImg(e.def, true) : spr, Math.round(cx - sw / 2 + e.ox), Math.round(cy - sh / 2 + e.bob + e.oy), sw, sh); ctx.globalAlpha = 1;
@@ -1063,7 +1140,8 @@ $('#bBook').onclick = async () => {
 function titleMenu() {
   mode = 'title'; setUI('battle'); msgEl.innerHTML = '<div class="big">イングリッシュクエスト</div><div class="sub">てきと たたかいながら えいごを まなぼう!\nまちの ひとと はなして ことばを おぼえよう。</div>'; typingFinish = null;
   const saved = load();
-  choose(saved ? [`つづきから (Lv${saved.lv})`, 'はじめから'] : ['ぼうけんを はじめる']).then(async c => {
+  choose([...(saved ? [`つづきから (Lv${saved.lv})`, 'はじめから'] : ['ぼうけんを はじめる']), 'ドット絵メーカー (がぞうから てきを つくる)']).then(async c => {
+    if (c === (saved ? 2 : 1)) { location.href = 'pixelize.html'; return; }
     ac(); if (canSpeak) speechSynthesis.getVoices();
     const fresh = !saved || c === 1; S = fresh ? newSave() : saved; scene = { kind: 'world' };
     genMap(); placePlayer(S.x, S.y); save();
@@ -1072,7 +1150,7 @@ function titleMenu() {
     lastZone = zoneAt(P.x, P.y); bannerText = ZONE_NAMES[lastZone]; bannerT = 2.2;
   });
 }
-fitScale(); genMap(); S = newSave(); placePlayer(S.x, S.y); setUI('battle'); titleMenu(); requestAnimationFrame(loop);
+loadImageMonsters(); fitScale(); genMap(); S = newSave(); placePlayer(S.x, S.y); setUI('battle'); titleMenu(); requestAnimationFrame(loop);
 setTimeout(fitScale, 300);
 window.__eq = { get S() { return S; }, battle, ENEMIES, BOSS, get mode() { return mode; }, enterTown, get scene() { return scene; }, P };
 </script>
