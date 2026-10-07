@@ -6,6 +6,7 @@ import { KNOTS } from '../public/fishing/data/knots.js';
 import { SPOTS, HAZARDS } from '../public/fishing/data/safety.js';
 import { FUNA_CAUSES } from '../public/fishing/data/funa.js';
 import { SOURCES } from '../public/fishing/data/sources.js';
+import { EAT, TRIVIA, EAT_GENERAL } from '../public/fishing/data/eat.js';
 import { KNOT_DIAGRAMS, fishSvg, rigSvg } from '../public/fishing/svg.js';
 import { searchFish } from '../public/fishing/search.js';
 
@@ -49,6 +50,26 @@ describe('釣り図鑑のデータ', () => {
   it('図は SVG として組み立てられる', () => {
     for (const f of FISH) expect(fishSvg(f.art)).toMatch(/^<svg[\s\S]*<\/svg>$/);
     for (const r of RIGS) expect(rigSvg(r.rig)).toMatch(/<svg/);
+  });
+});
+
+describe('食べ方・豆知識', () => {
+  it('すべての魚に食べ方があり、危険な魚は「食べない」になっている', () => {
+    for (const f of FISH) {
+      expect(EAT[f.id], f.id).toBeTruthy();
+      if (f.hazard) expect(EAT[f.id].ng, f.id).toBe(true);
+      if (EAT[f.id].ng) expect(EAT[f.id].how).toEqual([]);
+      else expect(EAT[f.id].how.length, f.id).toBeGreaterThan(0);
+    }
+  });
+  it('出典の ID が存在し、豆知識の basis が正しい', () => {
+    const all = [...Object.values(EAT), ...Object.values(TRIVIA).flat(), ...EAT_GENERAL];
+    for (const x of all) (x.src || []).forEach((id) => expect(SOURCES[id], id).toBeTruthy());
+    for (const t of Object.values(TRIVIA).flat()) {
+      expect(['source', 'general']).toContain(t.basis);
+      if (t.basis === 'source') expect(t.src?.length).toBeGreaterThan(0);
+    }
+    Object.keys(TRIVIA).forEach((id) => expect(FISH.find((f) => f.id === id), id).toBeTruthy());
   });
 });
 

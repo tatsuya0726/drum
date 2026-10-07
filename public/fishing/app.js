@@ -5,12 +5,13 @@ import { KNOTS } from './data/knots.js';
 import { SPOTS, HAZARDS, GENERAL_SAFETY } from './data/safety.js';
 import { FUNA_CAUSES, FUNA_RIG_ADVICE, FUNA_CHECKLIST } from './data/funa.js';
 import { SOURCES } from './data/sources.js';
+import { EAT, TRIVIA, EAT_GENERAL } from './data/eat.js';
 import { fishSvg, rigSvg, KNOT_DIAGRAMS } from './svg.js';
 import { searchFish } from './search.js';
 
 const $app = document.getElementById('app');
 const $tabs = document.getElementById('tabs');
-const TABS = [['fish', '図鑑'], ['tackle', '釣具・仕掛け'], ['knots', '結び方'], ['funa', 'フナの大型対策'], ['safety', '立入・安全']];
+const TABS = [['fish', '図鑑'], ['tackle', '釣具・仕掛け'], ['knots', '結び方'], ['funa', 'フナの大型対策'], ['eat', '食べ方'], ['trivia', '豆知識'], ['safety', '立入・安全']];
 const state = { q: '', month: 0, bait: '', method: '', place: '' };
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -22,6 +23,7 @@ function srcLinks(ids = []) {
   if (!items.length) return '<p class="src">出典: なし (一般的な目安。未検証)</p>';
   return `<p class="src">出典: ${items.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a>`).join(' / ')}</p>`;
 }
+const basisBadge = (b) => `<span class="basis ${b === 'source' ? 'source' : 'general'}">${b === 'source' ? '出典' : '一般'}</span>`;
 const levelLabel = { ng: '立入禁止', ok: '利用できる', check: '要確認' };
 
 function monthsBar(f) {
@@ -80,13 +82,33 @@ function viewFish(id) {
         <tr><th>釣り方</th><td>${f.methods.map((m) => `<span class="badge">${esc(METHODS[m].name)}</span>`).join('') || '—'}</td></tr>
         <tr><th>場所</th><td>${f.places.map((p) => `<span class="badge">${esc(PLACES[p].name)}</span>`).join('')}</td></tr>
       </table>
+      ${eatBlock(f)}
       <h3>釣り方のコツ</h3><ul class="plain">${f.tips.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
       ${f.note ? `<div class="alert check">${esc(f.note)}</div>` : ''}
+      ${triviaBlock(f.id)}
       ${rigs.length ? `<h3>おすすめの仕掛け</h3><ul class="plain">${rigs.map((r) => `<li><a href="#tackle/${r.id}">${esc(r.name)}</a></li>`).join('')}</ul>` : ''}
       ${f.id === 'funa' || f.id === 'koi' ? '<p><a href="#funa">→ 大型フナで糸や結び目が切れるときの対策</a></p>' : ''}
       ${srcLinks(f.src)}
       <p class="src">季節・餌・サイズは一般的な目安で、年や海況で変わります。</p>
     </div>`;
+}
+
+
+function eatBlock(f) {
+  const e = EAT[f.id];
+  if (!e) return '';
+  if (e.ng) return `<h3>食べ方</h3><div class="alert ng"><strong>食べ方は載せません。</strong> ${esc(e.caution)}${srcLinks(e.src)}</div>`;
+  return `<h3>食べ方・調理法</h3>
+    <ul class="plain">${e.how.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+    <h3>下ごしらえ</h3><ul class="plain">${e.prep.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+    ${e.caution ? `<div class="alert check">${esc(e.caution)}</div>` : ''}
+    ${e.src.length ? srcLinks(e.src) : '<p class="src">調理法は一般的な家庭料理の例で、出典はありません (未検証)。</p>'}
+    <p class="src"><a href="#eat">持ち帰り方・食の安全の基本</a></p>`;
+}
+function triviaBlock(id) {
+  const t = TRIVIA[id];
+  if (!t || !t.length) return '';
+  return `<h3>豆知識</h3><ul class="plain">${t.map((x) => `<li>${esc(x.t)} ${basisBadge(x.basis)}</li>`).join('')}</ul>`;
 }
 
 /* ---------- 釣具・仕掛け ---------- */
@@ -151,6 +173,27 @@ function viewFuna() {
     <div class="alert check">フナを釣る川・湖沼は、場所によって遊漁券や禁止区域が違います。<a href="#safety">立入・安全</a>で「要確認」の表示を確認してください。</div>`;
 }
 
+
+/* ---------- 食べ方 ---------- */
+function viewEat() {
+  $app.innerHTML = `
+    <h2>釣った魚の持ち帰りと食の安全</h2>
+    <div class="alert check"><span class="basis general">一般</span> は出典なしの一般的な説明、<span class="basis source">出典</span> は出典あり。食べるのは自己責任で、迷う魚は食べないでください。</div>
+    ${EAT_GENERAL.map((g) => `<section class="card"><h3>${esc(g.title)} ${basisBadge(g.basis)}</h3><ul class="plain">${g.body.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>${g.src ? srcLinks(g.src) : ''}</section>`).join('')}
+    <h2>魚ごとの食べ方</h2>
+    <div class="grid">${FISH.map((f) => { const e = EAT[f.id]; return `<a class="card" href="#fish/${f.id}"><strong>${esc(f.name)}</strong>${e?.ng ? ' <span class="badge ng">食べない</span>' : ''}<br><span class="src">${e && !e.ng ? esc(e.how[0]) : esc(e?.caution || '')}</span></a>`; }).join('')}</div>`;
+}
+
+/* ---------- 豆知識 ---------- */
+function viewTrivia() {
+  $app.innerHTML = `
+    <h2>釣りと魚の豆知識</h2>
+    <div class="alert check"><span class="basis source">出典</span> は出典あり、<span class="basis general">一般</span> は一般的に言われること (未検証・諸説あり)。</div>
+    ${FISH.filter((f) => (TRIVIA[f.id] || []).length).map((f) => `
+      <section class="card"><h3><a href="#fish/${f.id}">${esc(f.name)}</a></h3>
+      <ul class="plain">${TRIVIA[f.id].map((x) => `<li>${esc(x.t)} ${basisBadge(x.basis)}${(x.src || []).length ? srcLinks(x.src) : ''}</li>`).join('')}</ul></section>`).join('')}`;
+}
+
 /* ---------- 立入・安全 ---------- */
 function viewSafety() {
   $app.innerHTML = `
@@ -175,7 +218,7 @@ function viewSafety() {
 function route() {
   const [name = 'fish', arg] = (location.hash.slice(1) || 'fish').split('/');
   $tabs.innerHTML = TABS.map(([k, t]) => `<a href="#${k}"${k === name ? ' aria-current="page"' : ''}>${esc(t)}</a>`).join('');
-  ({ fish: () => (arg ? viewFish(arg) : viewFishList()), tackle: () => viewTackle(arg), knots: viewKnots, funa: viewFuna, safety: viewSafety }[name] || viewFishList)();
+  ({ fish: () => (arg ? viewFish(arg) : viewFishList()), tackle: () => viewTackle(arg), knots: viewKnots, funa: viewFuna, eat: viewEat, trivia: viewTrivia, safety: viewSafety }[name] || viewFishList)();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);

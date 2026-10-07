@@ -46,6 +46,21 @@ export const SOURCES = {
     url: 'https://www.pref.shimane.lg.jp/industry/suisan/shinkou/gyosei_info/hyoubondako/kikennseibutu.html',
     note: '毒はフグと同じテトロドトキシン。素手で触らない。',
   },
+  anisakis: {
+    title: '広島県「アニサキスによる食中毒」(厚生労働省の指針に基づく)',
+    url: 'https://www.pref.hiroshima.lg.jp/soshiki/58/anisakisu.html',
+    note: '本文を確認。加熱は70℃以上または60℃で1分以上、冷凍は-20℃で24時間以上。一般的な食酢・塩漬け・醤油・わさびでは死なない。新鮮な魚を選び、速やかに内臓を取り、目で見て幼虫を除く。',
+  },
+  mhlw_anisakis: {
+    title: '厚生労働省「アニサキス」(政府広報の記事)',
+    url: 'https://www.mhlw.go.jp/stf/houdou_kouhou/kouhou_shuppan/magazine/202502_004.html',
+    note: '本文を確認。海水魚のアニサキスについてだけの記事で、淡水魚の寄生虫は載っていません。',
+  },
+  ibaraki_hirame: {
+    title: '茨城県「いばらき冬のお魚特集」ほか (ヒラメ)',
+    url: 'https://www.pref.ibaraki.jp/bugai/koho/kenmin/syun/20251210.html',
+    note: '検索結果の要約で確認 (県サイトが停止中で本文は読めていません)。ヒラメは茨城県の魚、旬は12〜2月 (寒ビラメ)、茨城沖のものは「常磐もの」として評価が高い。',
+  },
   shimano_line: {
     title: 'シマノ「ライン(釣り糸)とは」',
     url: 'https://fish.shimano.com/ja-JP/content/beginners/fishingtackle/line/index.html',
