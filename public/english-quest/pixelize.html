@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>ドット絵メーカー - イングリッシュクエスト</title>
+<title>がぞうメーカー - イングリッシュクエスト</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#000;color:#fff;font-family:'DotGothic16',system-ui,sans-serif;padding:12px max(12px,env(safe-area-inset-right)) 40px max(12px,env(safe-area-inset-left))}
@@ -24,17 +24,18 @@ a{color:#8cf}
 </head>
 <body>
 <div class="win">
-  <h1>ドット絵メーカー</h1>
-  <small>画像をえらぶと、ドット絵に へんかんします。できたら「ゲームに ついか」で てきとして つかえます。</small>
+  <h1>がぞうメーカー</h1>
+  <small>じぶんで つくった イラストを てきとして ゲームに ついかできます。はいけいを きって、ゲームで つかえる がぞうに します。(「ドットにしない」を ONに すると イラストの まま)</small>
   <label for="file">がぞうを えらぶ</label>
   <input id="file" type="file" accept="image/*">
-  <label>おおきさ: <span id="vSize">48</span> ドット</label>
-  <input id="size" type="range" min="24" max="80" value="48">
+  <label>おおきさ: <span id="vSize">200</span> ドット</label>
+  <input id="size" type="range" min="24" max="320" value="200">
   <label>いろの かず: <span id="vCol">16</span></label>
   <input id="col" type="range" min="4" max="32" value="16">
   <label>はいけいを きる (きょうど: <span id="vTol">40</span>)</label>
   <input id="tol" type="range" min="0" max="120" value="40">
-  <label><input id="outline" type="checkbox" checked> ふちどり</label>
+  <label><input id="keep" type="checkbox" checked> ドットにしない (イラストの まま)</label>
+  <label><input id="outline" type="checkbox"> ふちどり (ドットのとき)</label>
   <canvas id="out" width="48" height="48" style="width:288px;height:288px"></canvas>
 </div>
 <div class="win">
@@ -50,7 +51,7 @@ const $ = s => document.querySelector(s), KEY = 'english_quest_custom_monsters';
 let srcImg = null, result = null;
 const ids = ['size', 'col', 'tol'];
 ids.forEach(i => $('#' + i).oninput = () => { $('#v' + { size: 'Size', col: 'Col', tol: 'Tol' }[i]).textContent = $('#' + i).value; run(); });
-$('#outline').onchange = run;
+$('#outline').onchange = run; $('#keep').onchange = () => { const k = $('#keep').checked; $('#size').value = k ? 200 : 48; $('#vSize').textContent = $('#size').value; run(); };
 $('#file').onchange = e => { const f = e.target.files[0]; if (!f) return; const img = new Image(); img.onload = () => { srcImg = img; run(); }; img.src = URL.createObjectURL(f); };
 
 function run() {
@@ -69,23 +70,24 @@ function run() {
     const seen = new Uint8Array(N * N), st = []; for (let x = 0; x < N; x++) { st.push([x, 0], [x, N - 1]); } for (let y = 0; y < N; y++) st.push([0, y], [N - 1, y]);
     while (st.length) { const [x, y] = st.pop(); if (x < 0 || y < 0 || x >= N || y >= N || seen[y * N + x]) continue; const i = (y * N + x) * 4; if (!near(i)) continue; seen[y * N + x] = 1; d[i + 3] = 0; st.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]); }
   }
-  for (let i = 0; i < d.length; i += 4) d[i + 3] = d[i + 3] > 100 ? 255 : 0;
+  if (!$('#keep').checked) for (let i = 0; i < d.length; i += 4) d[i + 3] = d[i + 3] > 100 ? 255 : 0;
   // 3. 減色 (k-means)
   const px = []; for (let i = 0; i < d.length; i += 4) if (d[i + 3]) px.push(i);
-  if (px.length) {
+  const keep = $('#keep').checked;
+  if (px.length && !keep) {
     let cen = []; for (let k = 0; k < K; k++) { const i = px[Math.floor(k * px.length / K)]; cen.push([d[i], d[i + 1], d[i + 2]]); }
     for (let it = 0; it < 8; it++) { const sum = cen.map(() => [0, 0, 0, 0]); px.forEach(i => { let b = 0, bd = 1e9; cen.forEach((c, k) => { const dd = (c[0] - d[i]) ** 2 + (c[1] - d[i + 1]) ** 2 + (c[2] - d[i + 2]) ** 2; if (dd < bd) { bd = dd; b = k; } }); const s = sum[b]; s[0] += d[i]; s[1] += d[i + 1]; s[2] += d[i + 2]; s[3]++; }); cen = cen.map((c, k) => sum[k][3] ? [sum[k][0] / sum[k][3], sum[k][1] / sum[k][3], sum[k][2] / sum[k][3]] : c); }
     px.forEach(i => { let b = 0, bd = 1e9; cen.forEach((c, k) => { const dd = (c[0] - d[i]) ** 2 + (c[1] - d[i + 1]) ** 2 + (c[2] - d[i + 2]) ** 2; if (dd < bd) { bd = dd; b = k; } }); d[i] = cen[b][0]; d[i + 1] = cen[b][1]; d[i + 2] = cen[b][2]; });
   }
   // 4. ふちどり (となりの色を暗くした色)
   let W = N, H = N, out = new Uint8ClampedArray(d);
-  if ($('#outline').checked) {
+  if (!keep && $('#outline').checked) {
     W = N + 2; H = N + 2; out = new Uint8ClampedArray(W * H * 4);
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const i = (y * N + x) * 4, o = ((y + 1) * W + x + 1) * 4; out.set(d.subarray(i, i + 4), o); }
     const src = new Uint8ClampedArray(out), A = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? -1 : (src[(y * W + x) * 4 + 3] > 128 ? (y * W + x) * 4 : -1);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (A(x, y) >= 0) continue; const nb = [A(x - 1, y), A(x + 1, y), A(x, y - 1), A(x, y + 1)].find(v => v >= 0); if (nb === undefined) continue; const o = (y * W + x) * 4; out[o] = src[nb] * .3; out[o + 1] = src[nb + 1] * .3; out[o + 2] = src[nb + 2] * .3; out[o + 3] = 255; }
   }
-  const c = $('#out'); c.width = W; c.height = H; c.style.width = Math.min(300, W * 6) + 'px'; c.style.height = Math.min(300, H * 6) * H / W + 'px';
+  const c = $('#out'); c.width = W; c.height = H; const dw = Math.min(300, W * 6); c.style.width = dw + 'px'; c.style.height = dw * H / W + 'px';
   c.getContext('2d').putImageData(new ImageData(out, W, H), 0, 0); result = c;
 }
 function list() {
@@ -96,7 +98,7 @@ function list() {
 $('#add').onclick = () => {
   if (!result) { alert('さきに がぞうを えらんでね'); return; }
   const zone = +$('#zone').value; let arr = []; try { arr = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { }
-  arr.push({ name: $('#name').value || 'あたらしい てき', zone, src: result.toDataURL('image/png'), hp: [32, 60, 100][zone], atk: [7, 12, 19][zone], exp: [16, 30, 52][zone], gold: [9, 15, 26][zone], sc: 2 });
+  arr.push({ name: $('#name').value || 'あたらしい てき', zone, src: result.toDataURL('image/png'), pix: !$('#keep').checked, hp: [32, 60, 100][zone], atk: [7, 12, 19][zone], exp: [16, 30, 52][zone], gold: [9, 15, 26][zone], sc: 2 });
   try { localStorage.setItem(KEY, JSON.stringify(arr)); } catch (e) { alert('ほぞんできませんでした'); return; } list();
 };
 $('#dl').onclick = () => { if (!result) return; const a = document.createElement('a'); a.href = result.toDataURL('image/png'); a.download = ($('#name').value || 'monster') + '.png'; a.click(); };
