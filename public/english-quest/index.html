@@ -18,9 +18,12 @@ html,body{margin:0;height:100%;background:#000;color:#fff;font-family:'DotGothic
 #msg .sub{font-size:.85em;opacity:.85}
 #msg .more{position:absolute;right:calc(var(--s)*10px);bottom:calc(var(--s)*4px);animation:bl .7s steps(2) infinite}
 @keyframes bl{50%{opacity:0}}
+#portrait{position:absolute;left:1%;bottom:29%;height:50%;display:none;pointer-events:none;z-index:2;filter:drop-shadow(0 4px 8px rgba(0,0,0,.65));animation:pin .28s ease-out}
+@keyframes pin{from{opacity:0;transform:translateX(-16px)}}
 /* 縦長のスマホ: メッセージを画面の下側 (ゲーム画面の下) に出して、すきまを使う */
 @media (min-height:760px) and (max-aspect-ratio:3/4){
   #stage{overflow:visible}
+  #portrait{bottom:-1%;height:56%}
   #msg{top:calc(100% + 8px);bottom:auto;left:0;right:0;min-height:calc(var(--s)*66px);font-size:calc(var(--s)*12px)}
 }
 #cmds{flex:none;max-height:46vh;overflow:auto;display:grid;gap:2px 6px;align-content:start;margin:auto 6px 0;--s:1.6}
@@ -51,7 +54,8 @@ input.sp{width:100%;font:inherit;font-size:22px;padding:8px;border:3px solid #ff
 <body>
 <div id="app">
   <div id="stage">
-    <canvas id="cv" width="256" height="224"></canvas>
+    <canvas id="cv" width="512" height="448"></canvas>
+    <img id="portrait" alt="">
     <div id="msg" class="win"></div>
   </div>
   <div id="cmds" class="win"></div>
@@ -79,7 +83,7 @@ input.sp{width:100%;font:inherit;font-size:22px;padding:8px;border:3px solid #ff
 const $ = s => document.querySelector(s);
 const cv = $('#cv'), ctx = cv.getContext('2d');
 ctx.imageSmoothingEnabled = false;
-const W = 256, H = 224, TS = 16, VW = 16, VH = 14;
+const W = 256, H = 224, TS = 16, VW = 16, VH = 14, SC = 2;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -182,124 +186,136 @@ function charFrames(name) {
   };
 }
 
-/* ---------------------------------------------------------------- モンスター(陰影つき) */
-const RAMPS = {
-  blue: ['#10205a', '#2848b8', '#4888f0', '#88c0ff', '#e0f0ff'], red: ['#501010', '#a02020', '#e04838', '#ff8868', '#ffd8c8'], metal: ['#383c48', '#6c7488', '#a0a8bc', '#d0d8e8', '#ffffff'],
-  purple: ['#200838', '#502088', '#8048c8', '#b080f0', '#e0c8ff'], green: ['#082808', '#206028', '#40a048', '#78d070', '#c8f8b0'], ghost: ['#303050', '#6870a8', '#a8b0e0', '#d8e0ff', '#ffffff'],
-  dark: ['#080818', '#201838', '#403068', '#685898', '#9888c8'], cap: ['#501010', '#a02818', '#e05028', '#ff8848', '#ffd0a0'], cream: ['#6a5030', '#a88858', '#d8b880', '#f0d8a8', '#fff8e0'],
-  wing: ['#2a0a30', '#601848', '#a02860', '#d85888', '#ffa8c0'], wingd: ['#0a0818', '#281848', '#483078', '#6848a8', '#9078d0'], belly: ['#a07830', '#d0a850', '#f0d078', '#fff0a8', '#ffffe0']
+/* ---------------------------------------------------------------- イラスト素材 */
+/* ---------------------------------------------------------------- イラスト (SVGをコードで描画。画像ファイルでの差し替えもできる) */
+const OL = '#1e1236', SS = 2;
+const svgURL = s => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+const ILL = {}, OVERRIDE = { enemy: {}, bg: {}, portrait: {} };
+const svgDoc = (w, h, defs, body) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w * SS}" height="${h * SS}" viewBox="0 0 ${w} ${h}"><defs>${defs}<filter id="bl"><feGaussianBlur stdDeviation="2.2"/></filter></defs>${body}</svg>`;
+/* SVG→キャンバス。読みこみがおわると中身が入る。 over=差し替え画像のURL */
+function illust(key, w, h, svg, over) {
+  const old = ILL[key]; if (old && !over) return old.canvas;
+  const c = old ? old.canvas : document.createElement('canvas'), rec = ILL[key] = { canvas: c, ready: false, white: null };
+  const load = (url, ok, ng) => { const img = new Image(); img.onload = () => ok(img); img.onerror = ng; img.src = url; };
+  const draw = img => { c.width = over ? img.naturalWidth : w * SS; c.height = over ? img.naturalHeight : h * SS; const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height); rec.ready = true; rec.white = null; };
+  if (!old) { c.width = w * SS; c.height = h * SS; }
+  if (over) load(over, draw, () => { delete ILL[key]; illust(key, w, h, svg); }); else load(svgURL(svg), draw, () => { });
+  return c;
+}
+const whiteCache = new WeakMap();
+function whiteIllust(c) { let w = whiteCache.get(c); if (!w || w.c !== c.width) { w = { c: c.width, cv: whiteOf(c) }; whiteCache.set(c, w); } return w.cv; }
+const rg = (id, p, cx = .35, cy = .28) => `<radialGradient id="${id}" cx="${cx}" cy="${cy}" r=".85"><stop offset="0" stop-color="${p[0]}"/><stop offset=".45" stop-color="${p[1]}"/><stop offset="1" stop-color="${p[2]}"/></radialGradient>`;
+const lg = (id, a, b, x2 = 0, y2 = 1) => `<linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;
+const st = (w = 4) => `stroke="${OL}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
+const PAL = {
+  blue: ['#d0ecff', '#4a92f2', '#1a3c9c'], red: ['#ffd8c8', '#ee5a44', '#8c1c1c'], metal: ['#ffffff', '#b4bcd0', '#5a6278'], purple: ['#e4ccff', '#8c54da', '#3c1c78'], green: ['#dcffc4', '#4cb454', '#1c5c28'],
+  ghost: ['#ffffff', '#cdd4fa', '#7a82bc'], dark: ['#c0b0f0', '#4a3a7c', '#1c1038'], cap: ['#ffdca8', '#ea4a2a', '#8c1410'], bone: ['#ffffff', '#ece4c4', '#8c8264'], octo: ['#ffd4e4', '#e24a90', '#7a1450'],
+  stone: ['#f0f0fc', '#9090a6', '#3c3c52'], robe: ['#b8b8ff', '#4040c4', '#14146e'], petal: ['#ffdce4', '#f24c7c', '#8c1038'], gold: ['#fffbd0', '#f4c830', '#b07c08']
 };
-function line(g, x0, y0, x1, y1, c) { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for (let i = 0; i <= n; i++) Px(g, Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), c); }
-const mirror = (pts, w) => pts.map(([x, y]) => [w - x, y]);
-const ell = (cx, cy, rx, ry) => (x, y) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 1;
-const anyOf = (...fs) => (x, y) => fs.some(f => f(x, y));
-function eye(g, x, y, rw, rh, pupil = '#101028') { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x, y, rw, rh, 0, 0, 7); g.fill(); Rc(g, Math.round(x) - 1, Math.round(y) - 1, 2, Math.max(2, rh), pupil); Px(g, Math.round(x) - 1, Math.round(y) - 1, '#fff'); }
-
-Object.assign(RAMPS, {
-  bone: ['#4a4430', '#8c8466', '#c8c0a0', '#ece8d0', '#ffffff'], brown: ['#2c1808', '#583410', '#8a5420', '#b87c38', '#e0b068'], robe: ['#0c0c30', '#202068', '#3838a8', '#6060d8', '#a0a0ff'],
-  stone: ['#24242e', '#4c4c5c', '#7c7c8e', '#acacc0', '#dcdcf0'], octo: ['#3c0a28', '#8a1850', '#c83878', '#f070a0', '#ffc0d8'], petal: ['#500a20', '#a02048', '#e04070', '#ff80a0', '#ffd0dc'], gold: ['#6a4800', '#b08410', '#e0b830', '#fff060', '#ffffe0']
-});
-const rrect = (x0, y0, x1, y1, r) => (x, y) => x > x0 && x < x1 && y > y0 && y < y1 && !((x < x0 + r || x > x1 - r) && (y < y0 + r || y > y1 - r) && Math.hypot(Math.min(x - x0 - r, 0) + Math.max(x - x1 + r, 0), Math.min(y - y0 - r, 0) + Math.max(y - y1 + r, 0)) > r);
-function extraMonster(kind, ramp) {
-  const R = RAMPS[ramp];
-  if (kind === 'skeleton') return outline(art(48, 56, (g, w, h) => {
-    const B = RAMPS.bone, bones = (...fs) => shade(g, maskOf(w, h, anyOf(...fs)), w, h, B, { R: 3, k: 1.2 });
-    bones(ell(24, 14, 11, 10.5), rrect(17, 18, 31, 26, 3));
-    bones(rrect(22, 25, 26, 42, 1), ...[0, 1, 2, 3].map(i => rrect(15, 27 + i * 4, 33, 29.5 + i * 4, 1)), rrect(15, 41, 33, 46, 3), rrect(11, 28, 15, 44, 1.5), rrect(33, 28, 37, 44, 1.5), rrect(17, 46, 22, 56, 1.5), rrect(26, 46, 31, 56, 1.5));
-    [[19, 14], [29, 14]].forEach(([ex, ey]) => { g.fillStyle = '#10080c'; g.beginPath(); g.ellipse(ex, ey, 3, 3.6, 0, 0, 7); g.fill(); Rc(g, ex - 1, ey - 1, 2, 2, '#e02020'); });
-    Rc(g, 23, 18, 2, 3, '#2a2418'); for (let i = 0; i < 5; i++) Rc(g, 18 + i * 3, 23, 1, 3, '#2a2418'); Rc(g, 18, 22, 13, 1, '#2a2418');
-    shade(g, maskOf(w, h, poly([[38, 30], [44, 4], [47, 5], [42, 32]])), w, h, RAMPS.metal, { R: 2, k: 1 }); Rc(g, 36, 31, 8, 2, RAMPS.brown[2]);
-  }), .25);
-  if (kind === 'goblin') return outline(art(48, 50, (g, w, h) => {
-    const EL = poly([[13, 13], [1, 8], [3, 16], [13, 19]]), ER = poly(mirror([[13, 13], [1, 8], [3, 16], [13, 19]], 48));
-    shade(g, maskOf(w, h, (x, y) => EL(x, y) || ER(x, y)), w, h, R, { R: 3, k: 1.1 });
-    shade(g, maskOf(w, h, anyOf(ell(24, 15, 11, 10), ell(24, 35, 12, 13), ell(10, 33, 4, 9), ell(38, 33, 4, 9), rrect(15, 42, 22, 50, 2), rrect(26, 42, 33, 50, 2))), w, h, R, { R: 5, k: 1.4 });
-    shade(g, maskOf(w, h, rrect(14, 40, 34, 45, 2)), w, h, RAMPS.brown, { R: 2, k: 1 });
-    shade(g, maskOf(w, h, poly([[40, 30], [44, 5], [48, 7], [44, 34]])), w, h, RAMPS.brown, { R: 3, k: 1.1 });
-    [[20, 14], [28, 14]].forEach(([ex, ey]) => { Rc(g, ex - 2, ey - 2, 4, 3, '#ffe040'); Rc(g, ex - 1, ey - 1, 2, 2, '#b01010'); });
-    Rc(g, 19, 20, 10, 2, '#200808'); Rc(g, 20, 19, 1, 2, '#fff'); Rc(g, 27, 19, 1, 2, '#fff'); line(g, 18, 11, 22, 12, '#103010'); line(g, 30, 11, 26, 12, '#103010');
-  }), .25);
-  if (kind === 'octopus') return outline(art(52, 52, (g, w, h) => {
-    const tent = []; for (let i = 0; i < 6; i++) { const x0 = 11 + i * 6, dir = (i - 2.5) * .9; for (let k = 0; k < 8; k++) tent.push(ell(x0 + dir * k * .8 + Math.sin(k * .9 + i) * 2.2, 32 + k * 2.6, 3.4 - k * .3, 3.2)); }
-    shade(g, maskOf(w, h, anyOf(ell(26, 20, 16, 15), ...tent)), w, h, R, { R: 5, k: 1.3 });
-    [[19, 21], [33, 21]].forEach(([ex, ey]) => eye(g, ex, ey, 3.4, 4.2)); Rc(g, 23, 30, 6, 2, '#300818'); Rc(g, 14, 12, 5, 2, RAMPS.octo[4]); Rc(g, 13, 14, 2, 2, RAMPS.octo[4]);
-  }), .25);
-  if (kind === 'golem') return outline(art(56, 58, (g, w, h) => {
-    shade(g, maskOf(w, h, anyOf(rrect(12, 20, 44, 46, 5), rrect(19, 6, 37, 22, 4), rrect(1, 22, 12, 46, 4), rrect(44, 22, 55, 46, 4), rrect(15, 45, 27, 58, 3), rrect(29, 45, 41, 58, 3))), w, h, R, { R: 5, k: 1.5 });
-    [[24, 13], [32, 13]].forEach(([ex, ey]) => { Rc(g, ex - 2, ey - 1, 4, 3, '#ffb020'); Px(g, ex - 1, ey, '#fff'); }); Rc(g, 23, 18, 10, 2, RAMPS.stone[0]);
-    line(g, 20, 24, 26, 34, RAMPS.stone[0]); line(g, 26, 34, 24, 42, RAMPS.stone[0]); line(g, 36, 26, 32, 36, RAMPS.stone[0]); line(g, 5, 28, 8, 40, RAMPS.stone[0]);
-    [[16, 22], [38, 24], [3, 24]].forEach(([x, y]) => { Rc(g, x, y, 4, 2, '#3a8a3a'); Rc(g, x + 1, y - 1, 2, 1, '#58b058'); });
-  }), .25);
-  if (kind === 'plant') return outline(art(48, 56, (g, w, h) => {
-    const LL = poly([[22, 44], [4, 36], [2, 44], [20, 50]]), LR = poly(mirror([[22, 44], [4, 36], [2, 44], [20, 50]], 44));
-    shade(g, maskOf(w, h, (x, y) => LL(x, y) || LR(x, y) || ell(22, 40, 4, 14)(x, y) || rrect(15, 50, 29, 56, 2)(x, y)), w, h, RAMPS.green, { R: 3, k: 1.2 });
-    shade(g, maskOf(w, h, ell(22, 20, 17, 16)), w, h, R, { R: 6, k: 1.3 });
-    [[14, 12], [30, 12], [22, 6]].forEach(([x, y]) => { g.fillStyle = RAMPS.petal[4]; g.beginPath(); g.ellipse(x, y, 2.4, 2, 0, 0, 7); g.fill(); });
-    eye(g, 15, 17, 3, 3.6); eye(g, 29, 17, 3, 3.6);
-    g.fillStyle = '#300410'; g.beginPath(); g.ellipse(22, 27, 10, 6, 0, 0, 7); g.fill(); for (let i = 0; i < 5; i++) { Rc(g, 14 + i * 4, 22, 2, 3, '#fff'); Rc(g, 15 + i * 4, 30, 2, 2, '#fff'); } Rc(g, 18, 26, 8, 2, '#e86078');
-  }), .25);
-  if (kind === 'wizard') return outline(art(52, 58, (g, w, h) => {
-    shade(g, maskOf(w, h, anyOf(poly([[26, 22], [8, 58], [44, 58]]), ell(26, 22, 10, 9), poly([[26, 0], [14, 15], [38, 15]]), ell(10, 38, 4, 6), ell(42, 38, 4, 6))), w, h, R, { R: 5, k: 1.3 });
-    g.fillStyle = '#080818'; g.beginPath(); g.ellipse(26, 22, 6.5, 6, 0, 0, 7); g.fill(); [[23, 22], [29, 22]].forEach(([ex, ey]) => Rc(g, ex - 1, ey - 1, 3, 2, '#ffe040'));
-    Rc(g, 15, 14, 22, 2, RAMPS.gold[2]); Rc(g, 22, 8, 2, 2, RAMPS.gold[3]);
-    line(g, 6, 20, 6, 58, RAMPS.brown[3]); line(g, 7, 20, 7, 58, RAMPS.brown[1]); g.fillStyle = '#80f0ff'; g.beginPath(); g.arc(6.5, 16, 4, 0, 7); g.fill(); Rc(g, 5, 14, 2, 2, '#fff');
-    Rc(g, 8, 36, 4, 4, '#f0c098'); Rc(g, 40, 36, 4, 4, '#f0c098');
-  }), .25);
-  if (kind === 'kslime') { const b = monsterArt('slime', ramp); return art(b.width, b.height + 10, g => { g.drawImage(b, 0, 10); Rc(g, 13, 4, 16, 8, RAMPS.gold[2]); Rc(g, 13, 4, 16, 2, RAMPS.gold[3]); [[13, 1], [20, 0], [27, 1]].forEach(([x, y]) => { Rc(g, x, y, 3, 5, RAMPS.gold[2]); Rc(g, x, y, 3, 1, RAMPS.gold[4]); }); Rc(g, 17, 7, 2, 2, '#e02040'); Rc(g, 23, 7, 2, 2, '#2060e0'); Rc(g, 12, 10, 18, 2, RAMPS.gold[0]); }); }
-  return null;
-}
-function monsterArt(kind, ramp) {
-  const X = extraMonster(kind, ramp); if (X) return X;
-  const R = RAMPS[ramp];
-  if (kind === 'slime') return outline(art(40, 36, (g, w, h) => {
-    shade(g, maskOf(w, h, anyOf(ell(20, 25, 17, 10.5), ell(20, 15, 9, 9), ell(20, 7, 4, 6))), w, h, R, { R: 5, k: 1.5 });
-    eye(g, 14, 24, 3.2, 4); eye(g, 26, 24, 3.2, 4);
-    Rc(g, 15, 31, 10, 1, '#201030'); Rc(g, 14, 30, 1, 1, '#201030'); Rc(g, 25, 30, 1, 1, '#201030'); Rc(g, 17, 32, 6, 1, '#e86078');
-    Rc(g, 12, 13, 3, 2, '#fff'); Rc(g, 11, 15, 1, 1, '#fff');
-  }), .25);
-  if (kind === 'bat') return outline(art(52, 38, (g, w, h) => {
-    const WLp = [[21, 17], [1, 6], [6, 15], [1, 22], [9, 23], [7, 31], [17, 26], [21, 26]], WRp = mirror(WLp, 52), WL = poly(WLp), WR = poly(WRp);
-    shade(g, maskOf(w, h, (x, y) => WL(x, y) || WR(x, y)), w, h, RAMPS.wing, { R: 3, k: 1.1 });
-    [[1, 6], [1, 22], [7, 31]].forEach(([tx, ty]) => { line(g, 21, 17, tx + 1, ty, RAMPS.wing[0]); line(g, 31, 17, 51 - tx, ty, RAMPS.wing[0]); });
-    shade(g, maskOf(w, h, anyOf(ell(26, 21, 10, 9.5), poly([[18, 15], [19, 3], [24, 12]]), poly([[34, 15], [33, 3], [28, 12]]))), w, h, R, { R: 5, k: 1.5 });
-    eye(g, 22, 20, 2.6, 3, '#d01020'); eye(g, 30, 20, 2.6, 3, '#d01020');
-    g.fillStyle = '#300810'; g.beginPath(); g.ellipse(26, 27, 4, 2.5, 0, 0, 7); g.fill(); Rc(g, 25, 28, 2, 1, '#e86078'); Rc(g, 22, 25, 1, 3, '#fff'); Rc(g, 30, 25, 1, 3, '#fff');
-  }), .25);
-  if (kind === 'ghost') return outline(art(48, 54, (g, w, h) => {
-    const AL = poly([[11, 26], [2, 19], [0, 24], [4, 29], [11, 32]]), AR = poly(mirror([[11, 26], [2, 19], [0, 24], [4, 29], [11, 32]], 48));
-    shade(g, maskOf(w, h, (x, y) => AL(x, y) || AR(x, y)), w, h, R, { R: 3, k: 1.1 });
-    shade(g, maskOf(w, h, (x, y) => y < 22 ? ell(24, 21, 15, 15)(x, y) : y < 52 && Math.abs(x - 24 - 3.5 * Math.sin((y - 22) * .2)) < Math.max(2, 15 - (y - 22) * .42)), w, h, R, { R: 6, k: 1.3 });
-    [[17, 21], [31, 21]].forEach(([ex, ey]) => { g.fillStyle = '#101030'; g.beginPath(); g.ellipse(ex, ey, 3.2, 5.5, 0, 0, 7); g.fill(); Rc(g, ex - 1, ey - 3, 2, 2, '#fff'); });
-    g.fillStyle = '#101030'; g.beginPath(); g.ellipse(24, 32, 3.5, 4.5, 0, 0, 7); g.fill(); Rc(g, 23, 34, 3, 2, '#c05078');
-  }), .25);
-  if (kind === 'mush') return outline(art(40, 40, (g, w, h) => {
-    shade(g, maskOf(w, h, (x, y) => ell(20, 15, 18, 12.2)(x, y) && y < 22), w, h, R, { R: 5, k: 1.4 });
-    shade(g, maskOf(w, h, (x, y) => ell(20, 29, 9, 10)(x, y) && y > 21), w, h, RAMPS.cream, { R: 4, k: 1.4 });
-    [[12, 12, 3], [25, 10, 3], [20, 17, 2], [31, 17, 2], [9, 18, 2]].forEach(([x, y, r]) => { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x, y, r, r - .5, 0, 0, 7); g.fill(); });
-    [[16, 28], [24, 28]].forEach(([ex, ey]) => { Rc(g, ex - 1, ey - 2, 3, 5, '#201020'); Px(g, ex - 1, ey - 2, '#fff'); }); Rc(g, 18, 34, 5, 1, '#803030');
-  }), .25);
-  /* dragon */
-  return outline(art(100, 92, (g, w, h) => {
-    const WLp = [[30, 48], [2, 8], [11, 29], [1, 41], [13, 52], [8, 66], [30, 62]], WRp = mirror(WLp, 100), WL = poly(WLp), WR = poly(WRp);
-    shade(g, maskOf(w, h, (x, y) => WL(x, y) || WR(x, y)), w, h, RAMPS.wing, { R: 4, k: 1.1 });
-    [[2, 8], [1, 41], [8, 66]].forEach(([tx, ty]) => { line(g, 29, 47, tx + 1, ty, RAMPS.wing[0]); line(g, 71, 47, 99 - tx, ty, RAMPS.wing[0]); });
-    shade(g, maskOf(w, h, anyOf(ell(50, 64, 23, 21), ell(50, 29, 17, 14), ell(50, 40, 11, 7), ell(34, 84, 10, 7), ell(66, 84, 10, 7), ell(26, 62, 6, 11), ell(74, 62, 6, 11), ell(75, 80, 9, 8), ell(83, 75, 7, 6), ell(90, 68, 5.5, 5), ell(95, 60, 4, 4))), w, h, R, { R: 6, k: 1.4 });
-    shade(g, maskOf(w, h, ell(50, 66, 13, 17)), w, h, RAMPS.belly, { R: 5, k: 1 }); for (let i = 0; i < 5; i++) Rc(g, 39, 56 + i * 5, 22, 1, '#a07830');
-    [[[34, 20], [25, 3], [31, 2], [43, 14]], [[66, 20], [75, 3], [69, 2], [57, 14]]].forEach(pts => { g.fillStyle = '#f0e8c0'; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.fill(); g.fillStyle = '#a89860'; g.fillRect(pts[1][0] + (pts[1][0] < 50 ? 1 : -1), pts[1][1] + 1, 1, 6); });
-    [[42, 27], [58, 27]].forEach(([ex, ey]) => { Rc(g, ex - 3, ey - 2, 7, 4, '#fff060'); Rc(g, ex, ey - 2, 2, 4, '#c01010'); });
-    line(g, 36, 21, 46, 25, '#200808'); line(g, 36, 22, 46, 26, '#200808'); line(g, 64, 21, 54, 25, '#200808'); line(g, 64, 22, 54, 26, '#200808');
-    Rc(g, 46, 36, 2, 2, '#200'); Rc(g, 53, 36, 2, 2, '#200'); Rc(g, 42, 42, 17, 4, '#380808'); Rc(g, 45, 45, 11, 1, '#e86078');
-    for (let i = 0; i < 4; i++) { Rc(g, 43 + i * 4, 42, 2, 3, '#fff'); } for (let i = 0; i < 3; i++) Rc(g, 45 + i * 4, 45, 2, 2, '#fff');
-    [[22, 71], [26, 72], [30, 71], [70, 71], [74, 72], [78, 71]].forEach(([x, y]) => { Rc(g, x, y, 2, 3, '#f8f0d0'); });
-  }), .25);
-}
-const enemyArt = {};
+/* ---- 敵 ---- */
+const eyeP = (cx, cy, rx = 11, ry = 15, pc = '#1a1030') => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#fff" ${st(3)}/><ellipse cx="${cx + 2}" cy="${cy + 3}" rx="${rx * .5}" ry="${ry * .62}" fill="${pc}"/><circle cx="${cx - rx * .15}" cy="${cy - ry * .2}" r="${rx * .25}" fill="#fff"/>`;
+const CROWN = `<path d="M62 30 L70 6 L84 22 L100 0 L116 22 L130 6 L138 30 Z" fill="url(#gold)" ${st(4)}/><rect x="62" y="28" width="76" height="12" rx="3" fill="url(#gold)" ${st(4)}/><circle cx="100" cy="12" r="5" fill="#e02848" stroke="${OL}" stroke-width="2"/><circle cx="76" cy="34" r="3.5" fill="#3a78f0"/><circle cx="124" cy="34" r="3.5" fill="#3ad07a"/>`;
+const ART_ENEMY = {
+  slime: p => svgDoc(200, 190, rg('b', p), `<path d="M100 12 C106 38 126 54 150 82 C178 114 190 158 150 174 C128 184 72 184 50 174 C10 158 22 114 50 82 C74 54 94 38 100 12Z" fill="url(#b)" ${st(5)}/><path d="M60 104 C64 84 78 70 94 58" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" opacity=".75"/><ellipse cx="60" cy="124" rx="6" ry="9" fill="#fff" opacity=".6"/>${eyeP(76, 124)}${eyeP(124, 124)}<ellipse cx="56" cy="148" rx="11" ry="6" fill="#ff8aa8" opacity=".45"/><ellipse cx="144" cy="148" rx="11" ry="6" fill="#ff8aa8" opacity=".45"/><path d="M82 148 Q100 168 118 148 Q100 154 82 148Z" fill="#7a1c3a" ${st(3)}/><ellipse cx="100" cy="158" rx="8" ry="4" fill="#ff7a98"/>`),
+  kslime: p => svgDoc(200, 220, rg('b', p) + rg('gold', PAL.gold), `<g transform="translate(0,30)"><path d="M100 12 C106 38 126 54 150 82 C178 114 190 158 150 174 C128 184 72 184 50 174 C10 158 22 114 50 82 C74 54 94 38 100 12Z" fill="url(#b)" ${st(5)}/><path d="M60 104 C64 84 78 70 94 58" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" opacity=".75"/>${eyeP(76, 124)}${eyeP(124, 124)}<path d="M82 148 Q100 168 118 148 Q100 154 82 148Z" fill="#7a1c3a" ${st(3)}/></g><g transform="translate(0,6)">${CROWN}</g>`),
+  bat: p => svgDoc(240, 170, rg('b', p) + lg('w', '#c0488c', '#4a1448'), `<g id="wg"><path d="M104 84 C84 46 44 22 6 24 C20 44 16 62 8 78 C26 70 42 80 46 102 C62 92 78 98 90 116Z" fill="url(#w)" ${st(4)}/><path d="M104 84 L12 30 M104 88 L24 78 M104 92 L48 104" stroke="${OL}" stroke-width="3" fill="none" opacity=".6"/></g><use href="#wg" transform="translate(240,0) scale(-1,1)"/><path d="M96 74 L86 20 L118 62Z M144 74 L154 20 L122 62Z" fill="url(#b)" ${st(4)}/><ellipse cx="120" cy="100" rx="36" ry="38" fill="url(#b)" ${st(5)}/><ellipse cx="120" cy="118" rx="22" ry="18" fill="#fff" opacity=".18"/>${eyeP(105, 92, 10, 12, '#e01428')}${eyeP(135, 92, 10, 12, '#e01428')}<path d="M104 114 Q120 134 136 114 Q120 120 104 114Z" fill="#50101c" ${st(3)}/><path d="M109 116 L112 128 L116 118Z M131 116 L128 128 L124 118Z" fill="#fff" ${st(2)}/>`),
+  ghost: p => svgDoc(200, 230, rg('b', p, .4, .25), `<path d="M100 14 C152 14 170 64 166 112 C164 146 172 176 184 212 C166 204 154 218 138 208 C124 200 116 222 100 210 C84 222 76 200 62 208 C46 218 34 204 16 212 C28 176 36 146 34 112 C30 64 48 14 100 14Z" fill="url(#b)" ${st(5)}/><path d="M36 124 C14 114 4 94 8 70 C22 80 32 96 46 106Z M164 124 C186 114 196 94 192 70 C178 80 168 96 154 106Z" fill="url(#b)" ${st(4)}/><path d="M58 50 C64 36 80 28 92 28" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" opacity=".7"/><ellipse cx="74" cy="102" rx="12" ry="20" fill="#1a1840"/><ellipse cx="126" cy="102" rx="12" ry="20" fill="#1a1840"/><circle cx="70" cy="94" r="4.5" fill="#fff"/><circle cx="122" cy="94" r="4.5" fill="#fff"/><ellipse cx="100" cy="148" rx="12" ry="16" fill="#1a1840"/><ellipse cx="100" cy="156" rx="7" ry="6" fill="#d05a8a"/><ellipse cx="56" cy="132" rx="11" ry="6" fill="#ff90b8" opacity=".35"/><ellipse cx="144" cy="132" rx="11" ry="6" fill="#ff90b8" opacity=".35"/>`),
+  mush: p => svgDoc(200, 215, rg('c', p) + rg('s', PAL.bone), `<path d="M62 116 C58 150 60 182 70 198 C90 210 110 210 130 198 C140 182 142 150 138 116Z" fill="url(#s)" ${st(5)}/><path d="M16 104 C16 44 58 10 100 10 C142 10 184 44 184 104 C184 118 168 122 148 122 L52 122 C32 122 16 118 16 104Z" fill="url(#c)" ${st(5)}/><ellipse cx="62" cy="52" rx="16" ry="13" fill="#fff" opacity=".95"/><ellipse cx="128" cy="40" rx="14" ry="11" fill="#fff" opacity=".95"/><ellipse cx="98" cy="82" rx="11" ry="9" fill="#fff" opacity=".95"/><ellipse cx="160" cy="84" rx="10" ry="8" fill="#fff" opacity=".95"/><ellipse cx="34" cy="92" rx="9" ry="7" fill="#fff" opacity=".95"/><path d="M40 70 C46 46 70 28 92 22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".45"/><ellipse cx="82" cy="152" rx="6" ry="10" fill="#241020"/><ellipse cx="118" cy="152" rx="6" ry="10" fill="#241020"/><circle cx="80" cy="147" r="2.5" fill="#fff"/><circle cx="116" cy="147" r="2.5" fill="#fff"/><ellipse cx="68" cy="166" rx="9" ry="5" fill="#ff90a0" opacity=".5"/><ellipse cx="132" cy="166" rx="9" ry="5" fill="#ff90a0" opacity=".5"/><path d="M90 170 Q100 180 110 170" fill="none" stroke="#7a2a2a" stroke-width="3.5" stroke-linecap="round"/>`),
+  plant: p => svgDoc(200, 235, rg('h', p) + rg('g', PAL.green), `<path d="M96 128 C88 170 102 202 96 232" fill="none" stroke="${OL}" stroke-width="22" stroke-linecap="round"/><path d="M96 128 C88 170 102 202 96 232" fill="none" stroke="#3c9c48" stroke-width="14" stroke-linecap="round"/><path d="M94 186 C58 176 28 184 10 156 C44 152 76 162 96 184Z M104 200 C142 184 172 190 192 164 C158 158 126 170 102 196Z" fill="url(#g)" ${st(4)}/>${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<ellipse cx="100" cy="22" rx="17" ry="30" transform="rotate(${i * 45} 100 82)" fill="#ffd0dc" ${st(3.5)}/>`).join('')}<circle cx="100" cy="82" r="58" fill="url(#h)" ${st(5)}/><path d="M60 52 C68 36 84 28 98 26" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".5"/>${eyeP(76, 58, 11, 14)}${eyeP(124, 58, 11, 14)}<ellipse cx="100" cy="98" rx="42" ry="26" fill="#3a0816" ${st(4)}/>${[0, 1, 2, 3, 4].map(i => `<path d="M${68 + i * 16} 80 L${76 + i * 16} 96 L${84 + i * 16} 80Z" fill="#fff" stroke="${OL}" stroke-width="2"/>`).join('')}${[0, 1, 2, 3].map(i => `<path d="M${76 + i * 16} 118 L${84 + i * 16} 104 L${92 + i * 16} 118Z" fill="#fff" stroke="${OL}" stroke-width="2"/>`).join('')}<ellipse cx="100" cy="110" rx="16" ry="8" fill="#ff6a8a"/>`),
+  goblin: p => svgDoc(200, 240, rg('b', p) + lg('wd', '#c08850', '#6a3c18', 1, 0), `<path d="M160 34 L186 48 L170 156 L148 148Z" fill="url(#wd)" ${st(4)}/><circle cx="170" cy="36" r="18" fill="url(#wd)" ${st(4)}/><ellipse cx="76" cy="222" rx="22" ry="14" fill="url(#b)" ${st(4)}/><ellipse cx="124" cy="222" rx="22" ry="14" fill="url(#b)" ${st(4)}/><ellipse cx="100" cy="164" rx="52" ry="58" fill="url(#b)" ${st(5)}/><ellipse cx="100" cy="176" rx="32" ry="38" fill="#fff" opacity=".14"/><path d="M60 192 L140 192 L130 230 L70 230Z" fill="url(#wd)" ${st(4)}/><ellipse cx="46" cy="156" rx="15" ry="32" transform="rotate(14 46 156)" fill="url(#b)" ${st(4)}/><ellipse cx="156" cy="128" rx="15" ry="32" transform="rotate(-24 156 128)" fill="url(#b)" ${st(4)}/><circle cx="166" cy="104" r="14" fill="url(#b)" ${st(4)}/><path d="M62 82 L8 54 L22 96 L62 104Z M138 82 L192 54 L178 96 L138 104Z" fill="url(#b)" ${st(4)}/><ellipse cx="100" cy="84" rx="44" ry="40" fill="url(#b)" ${st(5)}/><path d="M64 70 L90 80 M136 70 L110 80" stroke="${OL}" stroke-width="5" stroke-linecap="round"/><ellipse cx="78" cy="86" rx="11" ry="9" fill="#ffe040" ${st(3)}/><ellipse cx="122" cy="86" rx="11" ry="9" fill="#ffe040" ${st(3)}/><circle cx="80" cy="87" r="4.5" fill="#b01010"/><circle cx="120" cy="87" r="4.5" fill="#b01010"/><path d="M98 92 L92 108 L104 108Z" fill="#2a8a2a" stroke="${OL}" stroke-width="2"/><path d="M72 112 Q100 134 128 112 Q100 120 72 112Z" fill="#3a0c0c" ${st(3)}/><path d="M80 114 L84 126 L90 116Z M120 114 L116 126 L110 116Z" fill="#fff" stroke="${OL}" stroke-width="2"/>`),
+  skeleton: p => { const b = (d, w) => `<path d="${d}" fill="none" stroke="${OL}" stroke-width="${w + 6}" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#ece4c4" stroke-width="${w}" stroke-linecap="round"/>`; return svgDoc(200, 240, rg('b', p) + lg('mt', '#fff', '#8890a8', 1, 0), `<path d="M168 22 L180 24 L168 150 L158 148Z" fill="url(#mt)" ${st(3)}/><rect x="148" y="146" width="30" height="8" rx="3" fill="#8a5420" ${st(3)}/>${b('M100 120 L100 184', 9)}${[0, 1, 2, 3].map(i => b(`M100 ${132 + i * 12} C70 ${128 + i * 12} 58 ${140 + i * 12} 62 ${150 + i * 12} M100 ${132 + i * 12} C130 ${128 + i * 12} 142 ${140 + i * 12} 138 ${150 + i * 12}`, 7)).join('')}${b('M60 198 C84 184 116 184 140 198 L134 208 L66 208Z', 8)}${b('M72 128 C52 148 48 176 50 196 M128 128 C148 140 156 146 164 150', 8)}${b('M84 208 L78 232 M116 208 L122 232', 9)}<ellipse cx="100" cy="62" rx="42" ry="40" fill="url(#b)" ${st(5)}/><path d="M70 92 C70 112 130 112 130 92 L126 106 L74 106Z" fill="url(#b)" ${st(4)}/><ellipse cx="80" cy="62" rx="13" ry="16" fill="#140c14"/><ellipse cx="120" cy="62" rx="13" ry="16" fill="#140c14"/><circle cx="80" cy="64" r="5" fill="#ff3030"/><circle cx="120" cy="64" r="5" fill="#ff3030"/><path d="M100 76 L93 90 L107 90Z" fill="#140c14"/><path d="M78 100 L78 108 M90 100 L90 110 M102 100 L102 110 M114 100 L114 110 M126 100 L126 108" stroke="${OL}" stroke-width="2.5"/>`); },
+  octopus: p => svgDoc(230, 254, rg('b', p), `${[0, 1, 2, 3, 4, 5].map(i => { const x = 50 + i * 26, d = `M${x} 120 C${x - 12 + (i % 2) * 24} 156 ${x + (i - 2.5) * 12} 176 ${x + (i - 2.5) * 20} 204 C${x + (i - 2.5) * 22} 218 ${x + (i - 2.5) * 16 + 14} 222 ${x + (i - 2.5) * 16 + 16} 210`; return `<path d="${d}" fill="none" stroke="${OL}" stroke-width="26" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${p[1]}" stroke-width="18" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${p[0]}" stroke-width="5" stroke-linecap="round" opacity=".5" transform="translate(-3 0)"/>`; }).join('')}<ellipse cx="115" cy="82" rx="76" ry="66" fill="url(#b)" ${st(5)}/><path d="M60 52 C70 32 92 20 114 18" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" opacity=".6"/><ellipse cx="62" cy="68" rx="9" ry="6" fill="#fff" opacity=".35"/>${eyeP(86, 88, 14, 18)}${eyeP(144, 88, 14, 18)}<ellipse cx="62" cy="112" rx="11" ry="6" fill="#ff90b0" opacity=".5"/><ellipse cx="168" cy="112" rx="11" ry="6" fill="#ff90b0" opacity=".5"/><path d="M104 116 Q115 126 126 116" fill="none" stroke="#5a0c34" stroke-width="4" stroke-linecap="round"/>`),
+  golem: p => svgDoc(230, 250, rg('b', p, .3, .22), `${[[56, 190, 50, 56], [124, 190, 50, 56]].map(([x, y, w, h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="url(#b)" ${st(5)}/>`).join('')}<rect x="52" y="78" width="126" height="122" rx="22" fill="url(#b)" ${st(5)}/><rect x="2" y="88" width="48" height="116" rx="18" fill="url(#b)" ${st(5)}/><rect x="180" y="88" width="48" height="116" rx="18" fill="url(#b)" ${st(5)}/><rect x="76" y="14" width="78" height="72" rx="18" fill="url(#b)" ${st(5)}/><path d="M92 108 L108 140 L96 168 L110 190 M150 100 L138 130 M26 120 L34 160" fill="none" stroke="#1c1c2a" stroke-width="4" stroke-linecap="round"/><rect x="88" y="42" width="54" height="10" rx="4" fill="#14141c"/><ellipse cx="98" cy="48" rx="11" ry="8" fill="#ffb020" ${st(2)}/><ellipse cx="132" cy="48" rx="11" ry="8" fill="#ffb020" ${st(2)}/><ellipse cx="98" cy="48" rx="5" ry="4" fill="#fff6c0"/><ellipse cx="132" cy="48" rx="5" ry="4" fill="#fff6c0"/><path d="M92 70 L138 70" stroke="#14141c" stroke-width="5" stroke-linecap="round"/><path d="M60 82 C74 70 88 84 100 74 C112 86 128 72 146 82" fill="none" stroke="#3a9a3a" stroke-width="8" stroke-linecap="round"/><path d="M8 96 C18 88 30 98 42 92" fill="none" stroke="#3a9a3a" stroke-width="7" stroke-linecap="round"/><path d="M70 100 C80 94 88 104 100 98" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".3"/>`),
+  wizard: p => svgDoc(210, 250, rg('b', p, .4, .25) + rg('o', ['#ffffff', '#80f0ff', '#2090d0']), `<path d="M30 40 L30 246" stroke="${OL}" stroke-width="12" stroke-linecap="round"/><path d="M30 40 L30 246" stroke="#a86a30" stroke-width="6" stroke-linecap="round"/><circle cx="30" cy="30" r="20" fill="#80f0ff" opacity=".3"/><circle cx="30" cy="30" r="13" fill="url(#o)" ${st(3)}/><path d="M104 62 C80 118 40 178 28 246 L180 246 C168 178 128 118 104 62Z" fill="url(#b)" ${st(5)}/><path d="M104 8 L56 94 C80 78 128 78 152 94Z" fill="url(#b)" ${st(5)}/><path d="M60 92 C82 84 126 84 148 92" fill="none" stroke="#f4c830" stroke-width="7" stroke-linecap="round"/><ellipse cx="104" cy="112" rx="34" ry="30" fill="#0a0a1c" ${st(4)}/><ellipse cx="92" cy="112" rx="7" ry="5.5" fill="#ffe040"/><ellipse cx="116" cy="112" rx="7" ry="5.5" fill="#ffe040"/><path d="M52 158 C42 150 38 140 40 130 L60 138Z" fill="url(#b)" ${st(4)}/><circle cx="36" cy="128" r="10" fill="#ffd8b8" ${st(3)}/><path d="M156 156 C166 148 170 138 168 128 L148 136Z" fill="url(#b)" ${st(4)}/><circle cx="170" cy="126" r="10" fill="#ffd8b8" ${st(3)}/>${[[84, 176], [128, 196], [100, 220], [150, 170]].map(([x, y]) => `<path d="M${x} ${y - 7} L${x + 2.5} ${y - 2} L${x + 8} ${y - 2} L${x + 3.5} ${y + 2} L${x + 5} ${y + 8} L${x} ${y + 4.5} L${x - 5} ${y + 8} L${x - 3.5} ${y + 2} L${x - 8} ${y - 2} L${x - 2.5} ${y - 2}Z" fill="#f4e060"/>`).join('')}`),
+  dragon: p => svgDoc(330, 300, rg('b', p) + rg('bl2', PAL.gold) + lg('wg', '#d04890', '#4a1048') + rg('hn', ['#fffbe8', '#ecdca8', '#a08850']), `<g id="dw"><path d="M120 140 C90 90 40 50 6 30 C20 70 14 96 8 120 C30 110 50 124 56 150 C74 134 94 142 104 168Z" fill="url(#wg)" ${st(5)}/><path d="M120 140 L10 34 M120 146 L22 122 M120 152 L60 156" stroke="${OL}" stroke-width="4" fill="none" opacity=".65"/></g><use href="#dw" transform="translate(330,0) scale(-1,1)"/><path d="M226 232 C262 244 300 232 312 196 C318 178 308 168 296 176 C300 196 280 218 244 214Z" fill="url(#b)" ${st(5)}/><ellipse cx="165" cy="190" rx="68" ry="78" fill="url(#b)" ${st(6)}/><ellipse cx="165" cy="204" rx="40" ry="58" fill="url(#bl2)" ${st(4)}/>${[0, 1, 2, 3, 4].map(i => `<path d="M128 ${166 + i * 16} Q165 ${176 + i * 16} 202 ${166 + i * 16}" fill="none" stroke="#a07418" stroke-width="3"/>`).join('')}<ellipse cx="106" cy="274" rx="34" ry="22" fill="url(#b)" ${st(5)}/><ellipse cx="224" cy="274" rx="34" ry="22" fill="url(#b)" ${st(5)}/><ellipse cx="80" cy="196" rx="20" ry="44" transform="rotate(14 80 196)" fill="url(#b)" ${st(5)}/><ellipse cx="250" cy="196" rx="20" ry="44" transform="rotate(-14 250 196)" fill="url(#b)" ${st(5)}/>${[0, 1, 2].map(i => `<path d="M${58 + i * 12} 232 L${62 + i * 12} 250 L${68 + i * 12} 232Z M${238 + i * 12} 232 L${242 + i * 12} 250 L${248 + i * 12} 232Z" fill="#fff8e0" stroke="${OL}" stroke-width="2.5"/>`).join('')}<path d="M104 70 C90 40 96 12 120 4 C112 24 118 44 130 54Z M226 70 C240 40 234 12 210 4 C218 24 212 44 200 54Z" fill="url(#hn)" ${st(4)}/><ellipse cx="165" cy="86" rx="64" ry="56" fill="url(#b)" ${st(6)}/><ellipse cx="165" cy="116" rx="44" ry="30" fill="url(#b)" ${st(5)}/><path d="M72 40 L84 14 L92 44Z M238 40 L246 14 L258 44Z" fill="url(#hn)" ${st(3)}/><path d="M110 70 L146 84 M220 70 L184 84" stroke="${OL}" stroke-width="7" stroke-linecap="round"/><ellipse cx="128" cy="84" rx="15" ry="11" fill="#fff060" ${st(3.5)}/><ellipse cx="202" cy="84" rx="15" ry="11" fill="#fff060" ${st(3.5)}/><ellipse cx="128" cy="85" rx="4.5" ry="10" fill="#c01010"/><ellipse cx="202" cy="85" rx="4.5" ry="10" fill="#c01010"/><circle cx="148" cy="112" r="4" fill="#200808"/><circle cx="182" cy="112" r="4" fill="#200808"/><path d="M132 132 Q165 148 198 132 Q198 156 165 160 Q132 156 132 132Z" fill="#3a0a14" ${st(4)}/>${[0, 1, 2, 3, 4].map(i => `<path d="M${138 + i * 13} 134 L${144 + i * 13} 148 L${150 + i * 13} 134Z" fill="#fff" stroke="${OL}" stroke-width="2"/>`).join('')}<ellipse cx="165" cy="150" rx="18" ry="6" fill="#ff6a8a"/><path d="M110 46 C128 32 150 28 168 30" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" opacity=".4"/>`)
+};
+const KIND_H = { slime: 104, kslime: 128, bat: 84, ghost: 128, mush: 108, plant: 128, goblin: 134, skeleton: 136, octopus: 128, golem: 142, wizard: 138, dragon: 156 };
 function enemyImg(def, white) {
-  const k = def.name; if (def.kind === 'img') { if (!def.canvas) return spriteCache0 || (spriteCache0 = monsterArt('slime', 'blue')); enemyArt[k] = def.canvas; }
-  if (!enemyArt[k]) enemyArt[k] = monsterArt(def.kind, def.ramp);
-  if (!white) return enemyArt[k]; const wk = k + '#w'; return enemyArt[wk] || (enemyArt[wk] = whiteOf(enemyArt[k]));
+  const k = def.name;
+  if (def.kind === 'img') { if (!def.canvas) return ILL.__ph || (ILL.__ph = { canvas: art(2, 2, () => { }) }).canvas; return white ? whiteIllust(def.canvas) : def.canvas; }
+  const ck = 'e:' + k; if (ILL[ck]) return white ? whiteIllust(ILL[ck].canvas) : ILL[ck].canvas;
+  const src = OVERRIDE.enemy[k], pal = PAL[def.ramp] || PAL.blue, svg = ART_ENEMY[def.kind](pal);
+  const dims = { slime: [200, 190], kslime: [200, 220], bat: [240, 170], ghost: [200, 230], mush: [200, 215], plant: [200, 235], goblin: [200, 240], skeleton: [200, 240], octopus: [230, 254], golem: [230, 250], wizard: [210, 250], dragon: [330, 300] }[def.kind];
+  const c = illust('e:' + k, dims[0], dims[1], svg, src);
+  return white ? whiteIllust(c) : c;
 }
-let spriteCache0 = null;
+
+/* ---- 背景 (戦闘・タイトル) ---- */
+const BGT = [
+  { sky: ['#4f8fe8', '#8cc4f4', '#e4f4ff'], sun: [196, 52, 15, '#fff6c0'], cloud: '#ffffff', far: ['#9ab8d8', '#6a88b0'], h1: ['#7ac060', '#3c8a3c'], h2: ['#58a848', '#2a7030'], gr: ['#68b050', '#2c7430'], tree: ['#2e7a34', '#1c5a24'], stripe: '#8ad468' },
+  { sky: ['#365a8a', '#6c94a8', '#bcd6c4'], sun: [60, 62, 13, '#fffce0'], cloud: '#d4e4e8', far: ['#5a7e92', '#3c5c72'], h1: ['#3c8a5c', '#1c5a38'], h2: ['#2c7048', '#124a2c'], gr: ['#3c8050', '#1c5a34'], tree: ['#164a2a', '#0c3018'], stripe: '#58b078' },
+  { sky: ['#1a0c38', '#5a2a74', '#c86aa0'], sun: [190, 46, 17, '#f4eaff'], cloud: '#a870b0', far: ['#4a3468', '#32224c'], h1: ['#4c3478', '#2a1a50'], h2: ['#382460', '#1c1040'], gr: ['#4a3478', '#241450'], tree: ['#1c1038', '#0c0620'], stripe: '#7a5aa8' },
+  { sky: ['#2a0606', '#8a2010', '#f08030'], sun: [128, 96, 26, '#ffd060'], cloud: '#b04020', far: ['#5a1410', '#3a0a0a'], h1: ['#5a1c14', '#2c0a08'], h2: ['#481410', '#240806'], gr: ['#5c1c10', '#2c0804'], tree: ['#240a08', '#100404'], stripe: '#e05a20' }
+];
+function bgSVG(z) {
+  const T = BGT[z], h2 = n => (Math.sin(n * 127.1 + 311.7) * 43758.5453) % 1, ab = n => Math.abs(h2(n));
+  let defs = `<linearGradient id="sky" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="152"><stop offset="0" stop-color="${T.sky[0]}"/><stop offset=".55" stop-color="${T.sky[1]}"/><stop offset="1" stop-color="${T.sky[2]}"/></linearGradient>` +
+    lg('far', T.far[0], T.far[1]) + lg('h1', T.h1[0], T.h1[1]) + lg('h2', T.h2[0], T.h2[1]) + lg('gr', T.gr[0], T.gr[1]) +
+    `<radialGradient id="sun"><stop offset="0" stop-color="${T.sun[3]}"/><stop offset=".35" stop-color="${T.sun[3]}" stop-opacity=".6"/><stop offset="1" stop-color="${T.sun[3]}" stop-opacity="0"/></radialGradient><radialGradient id="vg" cx=".5" cy=".5" r=".75"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".38"/></radialGradient>`;
+  let b = `<rect width="256" height="224" fill="url(#sky)"/>`;
+  if (z >= 2) for (let i = 0; i < 40; i++) b += `<circle cx="${ab(i) * 256}" cy="${ab(i + 50) * 100}" r="${.4 + ab(i + 9) * .9}" fill="#fff" opacity="${.4 + ab(i + 3) * .6}"/>`;
+  b += `<circle cx="${T.sun[0]}" cy="${T.sun[1]}" r="${T.sun[2] * 3}" fill="url(#sun)"/><circle cx="${T.sun[0]}" cy="${T.sun[1]}" r="${T.sun[2]}" fill="${T.sun[3]}"/>`;
+  if (z === 3) b += `<path d="M70 150 L108 70 L128 96 L146 66 L190 150Z" fill="#2a0a08"/><path d="M104 78 L128 98 L148 70 L136 64 L124 82 L112 70Z" fill="#ff7a20" opacity=".9"/>`;
+  b += `<path d="M0 124 L24 86 L40 100 L66 62 L92 104 L120 80 L150 108 L184 72 L214 100 L238 80 L256 98 L256 150 L0 150Z" fill="url(#far)"/>`;
+  if (z < 2) b += `<path d="M66 62 L56 76 L62 74 L68 80 L72 72 L78 76Z M184 72 L174 86 L180 84 L186 90 L190 82 L196 86Z" fill="#fff" opacity=".9"/>`;
+  b += `<g filter="url(#bl)" opacity=".85" fill="${T.cloud}">`; for (let i = 0; i < 5; i++) { const cx = 20 + i * 54 + ab(i + 20) * 20, cy = 24 + ab(i + 30) * 34; b += `<ellipse cx="${cx}" cy="${cy}" rx="${22 + ab(i) * 12}" ry="6"/><ellipse cx="${cx + 12}" cy="${cy - 5}" rx="16" ry="6"/><ellipse cx="${cx - 12}" cy="${cy + 2}" rx="14" ry="5"/>`; } b += `</g>`;
+  b += `<path d="M0 132 C36 104 76 114 116 122 C160 130 206 98 256 112 L256 160 L0 160Z" fill="url(#h1)"/><path d="M0 132 C36 104 76 114 116 122 C160 130 206 98 256 112" fill="none" stroke="#fff" stroke-width="1.4" opacity=".28"/>`;
+  for (let i = 0; i < 9; i++) { const x = 8 + i * 30 + ab(i + 70) * 14, y = 112 + Math.sin(x * .03) * 8 + ab(i + 80) * 10; b += z === 1 ? `<path d="M${x} ${y - 20} L${x - 7} ${y} L${x + 7} ${y}Z M${x} ${y - 13} L${x - 9} ${y + 5} L${x + 9} ${y + 5}Z" fill="${T.tree[0]}"/>` : z >= 2 ? `<path d="M${x} ${y} L${x} ${y - 14} M${x} ${y - 8} L${x - 6} ${y - 15} M${x} ${y - 10} L${x + 6} ${y - 18}" stroke="${T.tree[0]}" stroke-width="2" fill="none" stroke-linecap="round"/>` : `<rect x="${x - 1}" y="${y - 4}" width="2" height="6" fill="#5a3a1c"/><circle cx="${x}" cy="${y - 9}" r="8" fill="${T.tree[0]}"/><circle cx="${x - 2}" cy="${y - 11}" r="4" fill="${T.tree[1]}" opacity=".5"/>`; }
+  b += `<path d="M0 146 C50 124 100 140 150 136 C200 132 230 124 256 134 L256 180 L0 180Z" fill="url(#h2)"/><path d="M0 146 C50 124 100 140 150 136 C200 132 230 124 256 134" fill="none" stroke="#fff" stroke-width="1.2" opacity=".25"/>`;
+  b += `<rect y="150" width="256" height="74" fill="url(#gr)"/>`;
+  for (let i = 0; i < 7; i++) { const y = 156 + i * i * 1.5 + i * 2; b += `<path d="M0 ${y} C60 ${y - 3} 190 ${y + 3} 256 ${y - 1}" fill="none" stroke="${T.stripe}" stroke-width="${.8 + i * .35}" opacity="${.12 + i * .03}"/>`; }
+  for (let i = 0; i < 46; i++) { const x = ab(i + 100) * 256, y = 158 + ab(i + 140) * 62, s = .6 + (y - 150) / 40; b += `<path d="M${x} ${y} l${-1.5 * s} ${-5 * s} M${x} ${y} l${.4 * s} ${-6 * s} M${x} ${y} l${2 * s} ${-4 * s}" stroke="${T.stripe}" stroke-width="${.7 * s}" fill="none" stroke-linecap="round" opacity=".7"/>`; }
+  if (z === 0) for (let i = 0; i < 12; i++) b += `<circle cx="${ab(i + 200) * 256}" cy="${170 + ab(i + 210) * 46}" r="1.6" fill="${['#fff', '#ffe048', '#ff9ac0'][i % 3]}"/>`;
+  if (z === 3) for (let i = 0; i < 26; i++) b += `<circle cx="${ab(i + 300) * 256}" cy="${ab(i + 330) * 224}" r="${.6 + ab(i) * 1.2}" fill="#ffb040" opacity="${.4 + ab(i + 1) * .5}"/>`;
+  b += `<rect width="256" height="224" fill="url(#vg)"/>`;
+  return svgDoc(256, 224, defs, b);
+}
+function buildBG(z) { return illust('bg' + z, 256, 224, bgSVG(z), OVERRIDE.bg[z]); }
+
+/* ---- 立ち絵 (キャラクター) ---- */
+const CH = {
+  hero: { style: 'spiky', hair: ['#6aaaff', '#2850c8'], eye: '#2a60d0', cloth: ['#ee5040', '#9c2420'], scarf: true },
+  girl: { style: 'long', hair: ['#d89058', '#8a4c20'], eye: '#c05030', cloth: ['#f488bc', '#b84880'], ribbon: true },
+  granny: { style: 'granny', hair: ['#f4f4fa', '#b4b4cc'], eye: '#6a5a8a', cloth: ['#ac8cdc', '#6a4aa0'], wrinkle: true },
+  keeper: { style: 'short', hair: ['#e4b464', '#a07830'], eye: '#3a7a3a', cloth: ['#5cbc6c', '#2a7a3a'], apron: true },
+  farmer: { style: 'hat', hair: ['#a46c3a', '#6a4018'], eye: '#4a3a2a', cloth: ['#4c7ccc', '#244a90'] },
+  elder: { style: 'elder', hair: ['#ffffff', '#c4c4dc'], eye: '#4a4a7a', cloth: ['#9e5ed4', '#5a2a90'], gold: true },
+  kid: { style: 'kid', hair: ['#f4b434', '#c07818'], eye: '#2a8ad0', cloth: ['#44bcf4', '#2078b0'] },
+  guard: { style: 'helmet', hair: ['#b4bcd0', '#6a7288'], eye: '#4a4a4a', cloth: ['#9ea8bc', '#5a6478'], armor: true }
+};
+function portraitSVG(key) {
+  const o = CH[key], sk = ['#ffe0c4', '#f0b894'], hp = o.hair, cl = o.cloth;
+  const defs = rg('hr', [hp[0], hp[0], hp[1]], .4, .2) + rg('sk', ['#fff0e0', sk[0], sk[1]], .4, .3) + lg('cl', cl[0], cl[1]) + rg('ir', ['#ffffff', o.eye, '#12182c'], .5, .35) + lg('mt', '#f0f4ff', '#7a86a0');
+  const eye = cx => `<ellipse cx="${cx}" cy="118" rx="13" ry="16" fill="#fff" ${st(2.5)}/><ellipse cx="${cx}" cy="120" rx="9.5" ry="13" fill="url(#ir)"/><ellipse cx="${cx}" cy="121" rx="4.6" ry="7.5" fill="#120a20"/><circle cx="${cx - 3.5}" cy="114" r="3.6" fill="#fff"/><circle cx="${cx + 3}" cy="126" r="1.8" fill="#fff" opacity=".8"/><path d="M${cx - 14} 112 Q${cx} 100 ${cx + 14} 112" fill="none" stroke="${OL}" stroke-width="4" stroke-linecap="round"/>`;
+  const H = (d, extra = '') => `<path d="${d}" fill="url(#hr)" ${st(4)} ${extra}/>`;
+  let back = '', front = '', top = '';
+  switch (o.style) {
+    case 'spiky': back = ''; front = H('M44 104 C38 62 60 32 100 28 C140 32 162 62 156 104 C150 82 140 74 128 78 C120 70 108 76 100 70 C92 76 80 70 72 78 C60 74 50 82 44 104Z') + H('M48 76 L20 42 L66 56Z M76 48 L82 8 L108 42Z M118 42 L142 4 L152 52Z M152 70 L182 38 L158 92Z'); top = `<path d="M44 94 C80 84 120 84 156 94 L154 106 C120 98 80 98 46 106Z" fill="#fff" ${st(3.5)}/><path d="M150 96 L178 112 L170 124 L146 108Z" fill="#fff" ${st(3.5)}/>`; break;
+    case 'long': back = H('M38 104 C26 154 30 214 52 240 L148 240 C170 214 174 154 162 104Z'); front = H('M46 100 C46 58 70 34 100 34 C130 34 154 58 154 100 C140 80 126 72 110 68 C104 86 90 88 82 72 C68 78 56 88 46 100Z'); top = `<path d="M120 36 L146 24 L150 52 L128 48Z M120 36 L100 24 L98 52 L124 48Z" fill="#e83a5a" ${st(3)}/>`; break;
+    case 'granny': back = H('M42 106 C36 140 44 170 60 180 L140 180 C156 170 164 140 158 106Z'); front = `<circle cx="100" cy="30" r="24" fill="url(#hr)" ${st(4)}/>` + H('M46 100 C46 58 70 38 100 38 C130 38 154 58 154 100 C142 84 126 76 100 76 C74 76 58 84 46 100Z'); top = `<path d="M60 108 C66 104 74 104 80 108 M120 108 C126 104 134 104 140 108" fill="none" stroke="${OL}" stroke-width="2" opacity=".5"/>`; break;
+    case 'short': front = H('M46 102 C42 58 68 30 100 30 C132 30 158 58 154 102 C144 82 128 72 104 76 C80 72 58 82 46 102Z'); break;
+    case 'hat': back = ''; front = H('M46 100 C46 66 68 52 100 52 C132 52 154 66 154 100 C142 84 126 78 100 80 C74 78 58 84 46 100Z'); top = `<ellipse cx="100" cy="66" rx="88" ry="17" fill="#ecc868" ${st(4)}/><path d="M56 62 C56 22 144 22 144 62Z" fill="#f4d880" ${st(4)}/><path d="M56 56 C80 64 120 64 144 56" fill="none" stroke="#c0402a" stroke-width="7"/>`; break;
+    case 'elder': back = H('M36 106 C30 144 40 170 56 178 L144 178 C160 170 170 144 164 106Z'); front = H('M44 100 C42 60 68 40 100 40 C132 40 158 60 156 100 C146 80 128 66 100 64 C72 66 54 80 44 100Z'); top = `<path d="M50 138 C56 206 144 206 150 138 C136 170 64 170 50 138Z" fill="#fff" ${st(4)}/><path d="M72 150 C86 160 114 160 128 150 C114 144 86 144 72 150Z" fill="#fff" ${st(3)}/><path d="M58 104 C66 96 80 98 88 104 M112 104 C120 98 134 96 142 104" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>`; break;
+    case 'kid': front = H('M44 104 C36 60 64 34 100 32 C136 34 164 60 156 104 C150 88 140 80 128 82 C120 72 110 80 100 74 C90 80 80 72 72 82 C60 80 50 88 44 104Z') + H('M62 40 L52 14 L84 34Z M110 32 L128 6 L136 38Z'); top = ''; break;
+    case 'helmet': front = ''; top = `<path d="M42 104 C36 50 66 20 100 20 C134 20 164 50 158 104 L148 98 C140 82 60 82 52 98Z" fill="url(#mt)" ${st(4.5)}/><path d="M90 22 L100 -4 L110 22Z" fill="#e83a3a" ${st(3.5)}/><path d="M96 90 L104 90 L104 132 L96 132Z" fill="url(#mt)" ${st(3)}/><path d="M60 64 C80 52 120 52 140 64" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".6"/>`; break;
+  }
+  const bodyX = `<path d="M10 262 C10 212 52 194 100 194 C148 194 190 212 190 262Z" fill="url(#cl)" ${st(5)}/>`;
+  let det = '';
+  if (o.scarf) det = `<path d="M54 190 C80 212 120 212 146 190 L150 208 C120 228 80 228 50 208Z" fill="#fff" ${st(4)}/><path d="M118 214 L132 252 L112 246Z" fill="#f4f4fa" ${st(3.5)}/>`;
+  if (o.apron) det = `<path d="M62 200 L138 200 L146 262 L54 262Z" fill="#fffaf0" ${st(4)}/><path d="M72 198 L84 150 M128 198 L116 150" stroke="${OL}" stroke-width="3" fill="none"/>`;
+  if (o.gold) det = `<path d="M100 196 L100 262" stroke="#f4c830" stroke-width="8"/><path d="M56 196 C80 214 120 214 144 196" fill="none" stroke="#f4c830" stroke-width="7"/>`;
+  if (o.armor) det = `<ellipse cx="38" cy="216" rx="30" ry="18" fill="url(#mt)" ${st(4)}/><ellipse cx="162" cy="216" rx="30" ry="18" fill="url(#mt)" ${st(4)}/><path d="M70 200 L130 200 L124 262 L76 262Z" fill="url(#mt)" ${st(3.5)} opacity=".95"/>`;
+  if (key === 'farmer') det = `<path d="M56 200 L62 262 M144 200 L138 262" stroke="#6a8ad8" stroke-width="16" stroke-linecap="round"/><circle cx="62" cy="214" r="5" fill="#f4c830"/><circle cx="138" cy="214" r="5" fill="#f4c830"/>`;
+  if (key === 'girl') det = `<path d="M60 194 C84 212 116 212 140 194" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>`;
+  if (key === 'kid') det = `<path d="M70 196 C88 208 112 208 130 196" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>`;
+  const face = `<ellipse cx="100" cy="116" rx="52" ry="58" fill="url(#sk)" ${st(4.5)}/><ellipse cx="48" cy="120" rx="8" ry="12" fill="url(#sk)" ${st(3.5)}/><ellipse cx="152" cy="120" rx="8" ry="12" fill="url(#sk)" ${st(3.5)}/>`;
+  const feat = `${eye(76)}${eye(124)}<path d="M62 98 Q76 90 90 96 M110 96 Q124 90 138 98" fill="none" stroke="${hp[1]}" stroke-width="4.5" stroke-linecap="round"/><path d="M100 132 Q104 140 98 142" fill="none" stroke="#c88a68" stroke-width="3" stroke-linecap="round"/><path d="M86 150 Q100 162 114 150" fill="none" stroke="#a84a4a" stroke-width="4" stroke-linecap="round"/><ellipse cx="62" cy="142" rx="11" ry="6" fill="#ff8aa0" opacity=".42"/><ellipse cx="138" cy="142" rx="11" ry="6" fill="#ff8aa0" opacity=".42"/>`;
+  const neck = `<path d="M82 160 L82 200 L118 200 L118 160Z" fill="${sk[1]}" ${st(4)}/>`;
+  return svgDoc(200, 262, defs, `${back}${neck}${bodyX}${det}${face}${key === 'elder' ? '' : ''}${feat}${front}${top}`);
+}
+function portraitCanvas(key) { return illust('p:' + key, 200, 262, portraitSVG(key), OVERRIDE.portrait[key]); }
+const portraitURL = key => OVERRIDE.portrait[key] || svgURL(portraitSVG(key));
+
 const ENEMIES = [
   [{ name: 'スライム', kind: 'slime', ramp: 'blue', hp: 22, atk: 5, exp: 10, gold: 5, tiers: [1] }, { name: 'ドラキー', kind: 'bat', ramp: 'purple', hp: 26, atk: 6, exp: 12, gold: 6, tiers: [1] },
     { name: 'ひとくいばな', kind: 'plant', ramp: 'petal', hp: 28, atk: 6, exp: 13, gold: 7, tiers: [1] }, { name: 'ゴブリン', kind: 'goblin', ramp: 'green', hp: 30, atk: 7, exp: 15, gold: 8, tiers: [1] }],
@@ -316,7 +332,16 @@ function addImageMonster(m) {
   const img = new Image(); img.onload = () => { def.canvas = art(img.naturalWidth, img.naturalHeight, g => g.drawImage(img, 0, 0)); }; img.src = m.src;
   ENEMIES[clamp(m.zone || 0, 0, 2)].push(def);
 }
+function loadAssetManifest() {
+  fetch('assets/manifest.json').then(r => r.ok ? r.json() : null).then(m => {
+    if (!m) return;
+    Object.entries(m.enemies || {}).forEach(([k, f]) => { OVERRIDE.enemy[k] = 'assets/' + f; delete ILL['e:' + k]; });
+    Object.entries(m.bg || {}).forEach(([k, f]) => { OVERRIDE.bg[k] = 'assets/' + f; delete ILL['bg' + k]; });
+    Object.entries(m.portraits || {}).forEach(([k, f]) => { OVERRIDE.portrait[k] = 'assets/' + f; delete ILL['p:' + k]; delete ILL['p:' + k]; });
+  }).catch(() => { });
+}
 function loadImageMonsters() {
+  loadAssetManifest();
   try { (JSON.parse(localStorage.getItem('english_quest_custom_monsters')) || []).forEach(addImageMonster); } catch (e) { }
   fetch('monsters/monsters.json').then(r => r.ok ? r.json() : []).then(list => list.forEach(m => addImageMonster({ ...m, src: 'monsters/' + m.file }))).catch(() => { });
 }
@@ -519,54 +544,6 @@ function canWalk(x, y) {
   return !SOLID_TOWN.has(scene.map[y][x]) && !npcAt(x, y);
 }
 
-/* ---------------------------------------------------------------- 戦闘の背景(丘の重なる風景) */
-const bgCache = {};
-function buildBG(z) {
-  if (bgCache[z]) return bgCache[z];
-  const T = [
-    { sky: ['#6aa4e8', '#a8d0f0', '#e0eef8'], cloud: '#ffffff', far: ['#7a9ab8', '#92aec8'], hill: ['#3a7a30', '#58a040', '#80c060'], gr: ['#4a8a34', '#66a848', '#88c860'], line: '#2c6228' },
-    { sky: ['#486890', '#7898b0', '#b8d0c8'], cloud: '#c8d8e0', far: ['#4a6a80', '#648098'], hill: ['#1c5a34', '#2c7a48', '#48a064'], gr: ['#2c6a3c', '#448850', '#68a868'], line: '#144028' },
-    { sky: ['#201040', '#582870', '#b05898'], cloud: '#9a68a8', far: ['#3a2858', '#503870'], hill: ['#3a2460', '#58408c', '#7c64b0'], gr: ['#3c2860', '#584088', '#7860a8'], line: '#241448' },
-    { sky: ['#300808', '#781818', '#d86020'], cloud: '#a03018', far: ['#501018', '#6a1c20'], hill: ['#481410', '#782820', '#a84830'], gr: ['#501810', '#7a2c1c', '#a04828'], line: '#300c08' }
-  ][z];
-  return bgCache[z] = art(W, H, g => {
-    const hz = 112; const c0 = hex(T.sky[0]), c1 = hex(T.sky[1]), c2 = hex(T.sky[2]);
-    for (let y = 0; y < hz + 10; y++) for (let x = 0; x < W; x++) {
-      const t = y / (hz + 10), bands = 9, tt = t * bands, b = Math.floor(tt), fr = tt - b + (BAYER[y & 3][x & 3] / 16 - .5) * .9, bi = clamp(b + (fr > .5 ? 1 : 0), 0, bands);
-      const u = bi / bands, col = u < .5 ? c0.map((v, i) => v + (c1[i] - v) * u * 2) : c1.map((v, i) => v + (c2[i] - v) * (u - .5) * 2);
-      g.fillStyle = `rgb(${col[0] | 0},${col[1] | 0},${col[2] | 0})`; g.fillRect(x, y, 1, 1);
-    }
-    // 雲
-    for (let i = 0; i < 6; i++) { const cx = 20 + i * 44 + hash2(i, 1) * 20, cy = 24 + hash2(i, 2) * 40, rw = 22 + hash2(i, 3) * 16; for (let k = 0; k < 4; k++) { const ex = cx + (k - 1.5) * rw * .45, ey = cy + Math.sin(k * 1.7) * 2; g.fillStyle = T.cloud; g.globalAlpha = .5; g.beginPath(); g.ellipse(ex, ey, rw * .42, 4 + k % 2 * 2, 0, 0, 7); g.fill(); g.globalAlpha = .75; g.beginPath(); g.ellipse(ex - 1, ey - 1, rw * .32, 3 + k % 2, 0, 0, 7); g.fill(); } }
-    g.globalAlpha = 1;
-    const ridge = (base, amp, f1, f2, sd) => x => base - amp * (0.55 * Math.sin(x * f1 + sd) + 0.45 * Math.sin(x * f2 + sd * 2.3)) - amp;
-    const layerHills = (fn, cols, texCol) => {
-      for (let x = 0; x < W; x++) {
-        const y0 = Math.round(fn(x)); for (let y = y0; y < hz + 20; y++) {
-          const t = (y - y0) / 26, slope = fn(x + 2) - fn(x - 2), lit = slope > 0 ? 1 : 0;
-          let ci = t < .25 ? 2 : t < .6 ? 1 : 0; if (lit && t < .5) ci = Math.min(2, ci + 1); if (slope < -.5 && t < .4) ci = Math.max(0, ci - 1);
-          if ((BAYER[y & 3][x & 3] / 16) < .25 && hash2(x, y) < .5) ci = clamp(ci + (hash2(x + 3, y) < .5 ? -1 : 1), 0, 2);
-          g.fillStyle = cols[ci]; g.fillRect(x, y, 1, 1);
-        }
-        g.fillStyle = texCol; g.fillRect(x, y0, 1, 1);
-      }
-    };
-    layerHills(ridge(hz - 30, 14, .035, .081, 1.2), [T.far[0], T.far[1], T.far[1]], T.far[0]);
-    layerHills(ridge(hz - 6, 12, .028, .066, 4.1), T.hill, T.line);
-    // 近景の草原
-    for (let y = hz + 6; y < H; y++) {
-      const t = (y - hz) / (H - hz); for (let x = 0; x < W; x++) {
-        const stripe = Math.floor((y - hz) * (1 + t * 1.8) / 7) % 2, n = hash2(x >> 1, y >> 1);
-        let ci = stripe ? 1 : 0; if (n < .1) ci = Math.max(0, ci - 1); else if (n > .9) ci = Math.min(2, ci + 1);
-        if (t > .55 && (BAYER[y & 3][x & 3] / 16) < .2) ci = Math.max(0, ci - 1);
-        g.fillStyle = T.gr[ci]; g.fillRect(x, y, 1, 1);
-      }
-    }
-    g.fillStyle = T.gr[2]; g.fillRect(0, hz + 5, W, 1);
-    for (let i = 0; i < 40; i++) { const x = hash2(i, 9) * W, y = hz + 12 + hash2(i, 8) * (H - hz - 20); g.fillStyle = T.line; g.fillRect(x | 0, y | 0, 1, 2); g.fillStyle = T.gr[2]; g.fillRect((x | 0) - 1, (y | 0) - 1, 1, 1); g.fillRect((x | 0) + 1, (y | 0) - 1, 1, 1); }
-  });
-}
-
 /* ---------------------------------------------------------------- サウンド */
 let AC = null, muted = false, bgmName = null, bgmTok = 0;
 function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { } } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
@@ -629,7 +606,10 @@ let B = null, bannerT = 0, bannerText = '', lastZone = -1, shake = 0, redFlash =
 function tween(ms, fn) { return new Promise(res => { const t0 = performance.now(); (function f(now) { const p = clamp((now - t0) / ms, 0, 1); fn(p); p < 1 ? requestAnimationFrame(f) : res(); })(t0); }); }
 
 /* ---------------------------------------------------------------- UI */
-const msgEl = $('#msg'), cmdEl = $('#cmds'), fieldUI = $('#fieldUI');
+const msgEl = $('#msg'), cmdEl = $('#cmds'), fieldUI = $('#fieldUI'), portraitEl = $('#portrait');
+function showPortrait(key) { if (!CH[key]) return; portraitEl.src = portraitURL(key); portraitEl.style.display = 'block'; portraitEl.style.animation = 'none'; void portraitEl.offsetWidth; portraitEl.style.animation = ''; }
+function hidePortrait() { portraitEl.style.display = 'none'; }
+const RESIDENTS = ['girl', 'keeper', 'farmer', 'granny', 'kid', 'guard', 'elder'];
 let advanceFn = null, typingFinish = null;
 function setUI(m) {
   const f = m === 'field';
@@ -963,7 +943,7 @@ async function talk() {
   let n = npcAt(P.x + d[0], P.y + d[1]); if (!n && scene.map[P.y + d[1]][P.x + d[0]] === 'C') n = npcAt(P.x + d[0] * 2, P.y + d[1] * 2);
   if (!n) { return; }
   busy = true; setUI('battle'); const back = { up: 'down', down: 'up', left: 'right', right: 'left' }[P.dir]; if (!n.still) n.dir = back; n.moving = false; n.px = n.x * TS; n.py = n.y * TS;
-  await talkNPC(n); setUI('field'); busy = false;
+  showPortrait(n.c); try { await talkNPC(n); } finally { hidePortrait(); } setUI('field'); busy = false;
 }
 
 /* ---------------------------------------------------------------- フィールド */
@@ -978,7 +958,7 @@ async function arrive() {
   if (scene.kind === 'town') {
     const ch = scene.map[P.y][P.x];
     if (ch === 'X') { await leaveTown(); return; }
-    if (ch === 'D') { const d = scene.doors[P.x + ',' + P.y]; busy = true; setUI('battle'); if (d.kind === 'inn') await innEvent(); else if (d.kind === 'school') await schoolEvent(); else await houseVisit(d.who); setUI('field'); busy = false; }
+    if (ch === 'D') { const d = scene.doors[P.x + ',' + P.y]; busy = true; setUI('battle'); showPortrait(d.kind === 'inn' ? 'keeper' : d.kind === 'school' ? 'elder' : RESIDENTS[Math.floor(hash2(d.who.length * 7 + (d.who.charCodeAt(0) || 0), 3) * RESIDENTS.length)]); try { if (d.kind === 'inn') await innEvent(); else if (d.kind === 'school') await schoolEvent(); else await houseVisit(d.who); } finally { hidePortrait(); } setUI('field'); busy = false; }
     return;
   }
   S.x = P.x; S.y = P.y;
@@ -1040,6 +1020,7 @@ function drawChar(name, dir, px, py, camX, camY, moving, t, bobPhase) {
   ctx.drawImage(f[fi], x, y - (moving && t > .25 && t < .75 ? 1 : 0));
 }
 function drawField() {
+  ctx.imageSmoothingEnabled = false;
   const mw = sceneW(), mh = sceneH(), fr = Math.floor(time * 2) % 2;
   const camX = mw * TS <= W ? -(W - mw * TS) / 2 : clamp(P.px + 8 - W / 2, 0, mw * TS - W);
   const camY = mh * TS <= H ? -(H - mh * TS) / 2 : clamp(P.py + 8 - H / 2, 0, mh * TS - H);
@@ -1066,36 +1047,38 @@ function drawField() {
   if (bannerT > 0) { ctx.globalAlpha = clamp(Math.min(bannerT * 2, 2.4 - bannerT + .3, 1), 0, 1); win(W / 2 - 62, 84, 124, 24); text(bannerText, W / 2, 91, 12, '#fff', 'center'); ctx.globalAlpha = 1; }
 }
 function drawBattle() {
-  const z = B.zone, e = B.e;
-  ctx.drawImage(buildBG(z), 0, 0);
-  // きらめき
-  const tw = Math.floor(time * 2) % 3; ctx.fillStyle = '#fff'; const sx = z >= 2 ? 200 : 178, sy = 54; ctx.fillRect(sx, sy - 5 - tw, 1, 11 + tw * 2); ctx.fillRect(sx - 5 - tw, sy, 11 + tw * 2, 1); ctx.fillRect(sx - 1, sy - 1, 3, 3);
-  const spr = enemyImg(e.def), sc = e.def.boss ? 1.55 : (e.def.sc || 2), sw = spr.width * sc, sh = spr.height * sc, cx = W / 2, cy = e.def.boss ? 88 : 96;
-  ctx.globalAlpha = e.alpha; ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.beginPath(); ctx.ellipse(cx, cy + sh / 2 + 3, sw / 2.6, 6, 0, 0, 7); ctx.fill();
+  const z = B.zone, e = B.e, def = e.def;
+  ctx.drawImage(buildBG(z), 0, 0, W, H);
+  const spr = enemyImg(def), pix = def.kind === 'img' && spr.width <= 100;
+  const dh = def.boss ? 158 : (KIND_H[def.kind] || def.h || 120), dw = dh * spr.width / Math.max(1, spr.height), cx = W / 2, bot = def.boss ? 172 : 162, ey = bot - dh / 2;
+  ctx.globalAlpha = e.alpha; ctx.fillStyle = 'rgba(0,0,0,.30)'; ctx.beginPath(); ctx.ellipse(cx, bot - 1, dw * .36, 7, 0, 0, 7); ctx.fill();
   const flick = B.fx && B.fx.t === 'slash' && B.fx.p > .5 && Math.floor(B.fx.p * 20) % 2;
-  ctx.drawImage(flick ? enemyImg(e.def, true) : spr, Math.round(cx - sw / 2 + e.ox), Math.round(cy - sh / 2 + e.bob + e.oy), sw, sh); ctx.globalAlpha = 1;
+  if (pix) ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(flick ? enemyImg(def, true) : spr, cx - dw / 2 + e.ox, bot - dh + e.bob + e.oy, dw, dh); ctx.globalAlpha = 1; ctx.imageSmoothingEnabled = true;
+  // ゆうしゃの立ち絵 (左下)。こうげきで前に出る
+  const hp = portraitCanvas('hero'), hh = 108, hw = hh * hp.width / Math.max(1, hp.height), lunge = B.fx && B.fx.t === 'slash' ? Math.sin(B.fx.p * Math.PI) * 38 : 0, hurt = redFlash > 0 ? rnd(-2, 2) : 0;
+  ctx.drawImage(hp, 0 + lunge + hurt, H - hh + 6 + Math.sin(time * 2.2) * 1.4, hw, hh);
   if (B.fx) {
-    if (B.fx.t === 'slash') { const p = B.fx.p; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.lineCap = 'round'; for (let k = 0; k < 3; k++) { const o = k * 8 - 8, a = clamp(p * 1.6 - k * .15, 0, 1); ctx.globalAlpha = 1 - Math.abs(a - .5) * 1.6; ctx.beginPath(); ctx.moveTo(cx - 45 + o, 45 + k * 3); ctx.lineTo(cx - 45 + o + a * 90, 45 + k * 3 + a * 90); ctx.stroke(); } ctx.globalAlpha = 1; }
-    if (B.fx.t === 'fire') { const p = B.fx.p; for (let i = 0; i < 14; i++) { const a = i / 14 * 6.28 + p * 4, r = 14 + p * 42; ctx.fillStyle = ['#f60', '#ff0', '#f33'][i % 3]; ctx.globalAlpha = 1 - p * .7; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r * .8, 90 + Math.sin(a) * r * .8 - p * 14, 8 - p * 4, 0, 7); ctx.fill(); } ctx.globalAlpha = 1; }
+    if (B.fx.t === 'slash') { const p = B.fx.p; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.shadowColor = '#8cf'; ctx.shadowBlur = 8; for (let k = 0; k < 3; k++) { const o = k * 9 - 9, a = clamp(p * 1.6 - k * .15, 0, 1); ctx.globalAlpha = 1 - Math.abs(a - .5) * 1.6; ctx.beginPath(); ctx.moveTo(cx - 48 + o, ey - 50 + k * 3); ctx.lineTo(cx - 48 + o + a * 96, ey - 50 + k * 3 + a * 100); ctx.stroke(); } ctx.globalAlpha = 1; ctx.shadowBlur = 0; }
+    if (B.fx.t === 'fire') { const p = B.fx.p; for (let i = 0; i < 16; i++) { const a = i / 16 * 6.28 + p * 4, r = 14 + p * 46; const g = ctx.createRadialGradient(cx + Math.cos(a) * r * .8, ey + Math.sin(a) * r * .8 - p * 14, 0, cx + Math.cos(a) * r * .8, ey + Math.sin(a) * r * .8 - p * 14, 12 - p * 5); g.addColorStop(0, '#fff7b0'); g.addColorStop(.5, ['#ff8a20', '#ffd030', '#ff4a30'][i % 3]); g.addColorStop(1, 'rgba(255,60,0,0)'); ctx.globalAlpha = 1 - p * .7; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r * .8, ey + Math.sin(a) * r * .8 - p * 14, 12 - p * 5, 0, 7); ctx.fill(); } ctx.globalAlpha = 1; }
   }
-  B.parts.forEach(p => { ctx.fillStyle = p.color; ctx.globalAlpha = 1 - p.t / p.life; ctx.fillRect(p.x, p.y, 2, 2); }); ctx.globalAlpha = 1;
+  B.parts.forEach(p => { ctx.fillStyle = p.color; ctx.globalAlpha = 1 - p.t / p.life; ctx.beginPath(); ctx.arc(p.x, p.y, 1.6, 0, 7); ctx.fill(); }); ctx.globalAlpha = 1;
   B.floats.forEach(f => text(f.text, f.x, f.y, 16, f.color, 'center'));
-  drawStatus(4, 4); if (e.alpha > 0) { const bw = 70; ctx.fillStyle = '#000'; ctx.fillRect(W - bw - 9, 8, bw + 2, 7); ctx.fillStyle = '#fff'; ctx.fillRect(W - bw - 8, 9, bw, 5); ctx.fillStyle = e.hp / e.max < .3 ? '#e44' : '#3d3'; ctx.fillRect(W - bw - 8, 9, bw * e.hp / e.max, 5); text(e.def.name, W - 8, 17, 9, '#fff', 'right'); }
-  if (B.combo >= 2) text(`${B.combo} COMBO!`, W - 8, 30, 11, '#ffe060', 'right');
+  drawStatus(4, 4);
+  if (e.alpha > 0) { const bw = 70; ctx.fillStyle = '#12082a'; rr(W - bw - 10, 7, bw + 4, 10, 5); ctx.fill(); ctx.fillStyle = '#fff'; rr(W - bw - 8, 9, bw, 6, 3); ctx.fill(); ctx.fillStyle = e.hp / e.max < .3 ? '#e44' : '#3d3'; rr(W - bw - 8, 9, Math.max(2, bw * e.hp / e.max), 6, 3); ctx.fill(); text(def.name, W - 8, 19, 9, '#fff', 'right'); }
+  if (B.combo >= 2) text(`${B.combo} COMBO!`, W - 8, 32, 11, '#ffe060', 'right');
 }
 function drawTitle() {
-  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#05052a'); g.addColorStop(.6, '#3a2a7a'); g.addColorStop(1, '#a05a8a'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#fff'; for (let i = 0; i < 60; i++) if ((i + Math.floor(time * 2 + hash2(i, 0) * 5)) % 4) ctx.fillRect(hash2(i, 3) * W, hash2(i, 4) * 130, 1, 1);
-  ctx.drawImage(buildBG(2), 0, 70, W, 110, 0, 70, W, 110);
-  ctx.fillStyle = '#10062a'; ctx.beginPath(); ctx.moveTo(0, H); for (let x = 0; x <= W; x += 8) ctx.lineTo(x, 172 - Math.abs(Math.sin(x * .05)) * 22); ctx.lineTo(W, H); ctx.fill();
-  ctx.fillStyle = '#0a0418'; ctx.fillRect(100, 128, 56, 60); ctx.fillRect(92, 110, 14, 78); ctx.fillRect(150, 110, 14, 78); ctx.fillRect(118, 98, 20, 34);
-  ctx.fillStyle = '#ffe888'; [[96, 128], [157, 128], [124, 112], [126, 158]].forEach(([x, y]) => ctx.fillRect(x, y, 2, 4));
-  const f = charFrames('hero').down[Math.floor(time * 2) % 2 ? 1 : 0]; ctx.drawImage(f, 120, 176 + Math.sin(time * 4));
+  ctx.drawImage(buildBG(2), 0, 0, W, H);
+  ctx.fillStyle = 'rgba(8,2,24,.9)'; ctx.beginPath(); ctx.moveTo(86, 176); ctx.lineTo(86, 130); ctx.lineTo(96, 126); ctx.lineTo(96, 108); ctx.lineTo(104, 104); ctx.lineTo(112, 108); ctx.lineTo(112, 126); ctx.lineTo(120, 96); ctx.lineTo(128, 80); ctx.lineTo(136, 96); ctx.lineTo(144, 126); ctx.lineTo(144, 108); ctx.lineTo(152, 104); ctx.lineTo(160, 108); ctx.lineTo(160, 126); ctx.lineTo(170, 130); ctx.lineTo(170, 176); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ffe888'; [[100, 120], [152, 120], [124, 110], [132, 110], [124, 140]].forEach(([x, y]) => ctx.fillRect(x, y, 3, 5));
+  const hp = portraitCanvas('hero'), hh = 112, hw = hh * hp.width / Math.max(1, hp.height); ctx.drawImage(hp, W / 2 - hw / 2, H - hh + 6 + Math.sin(time * 2) * 1.5, hw, hh);
   const bob = Math.sin(time * 2) * 2; ctx.save(); ctx.lineJoin = 'round';
   ['ENGLISH', 'QUEST'].forEach((t, i) => { ctx.font = `34px 'DotGothic16',monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; const y = 12 + i * 34 + bob; ctx.lineWidth = 5; ctx.strokeStyle = '#20105a'; ctx.strokeText(t, W / 2, y); const gr = ctx.createLinearGradient(0, y, 0, y + 34); gr.addColorStop(0, '#fff6b0'); gr.addColorStop(.5, '#ffd040'); gr.addColorStop(1, '#e08020'); ctx.fillStyle = gr; ctx.fillText(t, W / 2, y); });
   ctx.restore(); text('～ ことばの ゆうしゃ ～', W / 2, 86, 11, '#fff', 'center');
 }
 function render() {
+  ctx.setTransform(SC, 0, 0, SC, 0, 0); ctx.imageSmoothingEnabled = mode === 'battle' || mode === 'title' || (mode === 'trans' && !!B); ctx.imageSmoothingQuality = 'high';
   ctx.save(); if (shake > 0) ctx.translate(rnd(-3, 3), rnd(-2, 2));
   if (mode === 'title') drawTitle(); else if (mode === 'battle' && B) drawBattle(); else if (mode === 'field') drawField();
   else if (mode === 'trans') { if (B) drawBattle(); else drawField(); }
@@ -1140,7 +1123,7 @@ $('#bBook').onclick = async () => {
 function titleMenu() {
   mode = 'title'; setUI('battle'); msgEl.innerHTML = '<div class="big">イングリッシュクエスト</div><div class="sub">てきと たたかいながら えいごを まなぼう!\nまちの ひとと はなして ことばを おぼえよう。</div>'; typingFinish = null;
   const saved = load();
-  choose([...(saved ? [`つづきから (Lv${saved.lv})`, 'はじめから'] : ['ぼうけんを はじめる']), 'ドット絵メーカー (がぞうから てきを つくる)']).then(async c => {
+  choose([...(saved ? [`つづきから (Lv${saved.lv})`, 'はじめから'] : ['ぼうけんを はじめる']), 'がぞうメーカー (じぶんの イラストで てきを ついか)']).then(async c => {
     if (c === (saved ? 2 : 1)) { location.href = 'pixelize.html'; return; }
     ac(); if (canSpeak) speechSynthesis.getVoices();
     const fresh = !saved || c === 1; S = fresh ? newSave() : saved; scene = { kind: 'world' };
