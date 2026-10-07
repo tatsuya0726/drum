@@ -1,0 +1,732 @@
+[
+  {
+    "en": "apple",
+    "ja": "りんご",
+    "tier": 1
+  },
+  {
+    "en": "book",
+    "ja": "本",
+    "tier": 1
+  },
+  {
+    "en": "cat",
+    "ja": "ねこ",
+    "tier": 1
+  },
+  {
+    "en": "dog",
+    "ja": "いぬ",
+    "tier": 1
+  },
+  {
+    "en": "water",
+    "ja": "水",
+    "tier": 1
+  },
+  {
+    "en": "school",
+    "ja": "学校",
+    "tier": 1
+  },
+  {
+    "en": "friend",
+    "ja": "ともだち",
+    "tier": 1
+  },
+  {
+    "en": "happy",
+    "ja": "うれしい",
+    "tier": 1
+  },
+  {
+    "en": "big",
+    "ja": "大きい",
+    "tier": 1
+  },
+  {
+    "en": "small",
+    "ja": "小さい",
+    "tier": 1
+  },
+  {
+    "en": "red",
+    "ja": "赤い",
+    "tier": 1
+  },
+  {
+    "en": "blue",
+    "ja": "青い",
+    "tier": 1
+  },
+  {
+    "en": "run",
+    "ja": "走る",
+    "tier": 1
+  },
+  {
+    "en": "eat",
+    "ja": "食べる",
+    "tier": 1
+  },
+  {
+    "en": "drink",
+    "ja": "飲む",
+    "tier": 1
+  },
+  {
+    "en": "sleep",
+    "ja": "ねむる",
+    "tier": 1
+  },
+  {
+    "en": "read",
+    "ja": "読む",
+    "tier": 1
+  },
+  {
+    "en": "write",
+    "ja": "書く",
+    "tier": 1
+  },
+  {
+    "en": "mother",
+    "ja": "お母さん",
+    "tier": 1
+  },
+  {
+    "en": "father",
+    "ja": "お父さん",
+    "tier": 1
+  },
+  {
+    "en": "sun",
+    "ja": "太陽",
+    "tier": 1
+  },
+  {
+    "en": "moon",
+    "ja": "月",
+    "tier": 1
+  },
+  {
+    "en": "star",
+    "ja": "星",
+    "tier": 1
+  },
+  {
+    "en": "tree",
+    "ja": "木",
+    "tier": 1
+  },
+  {
+    "en": "flower",
+    "ja": "花",
+    "tier": 1
+  },
+  {
+    "en": "house",
+    "ja": "家",
+    "tier": 1
+  },
+  {
+    "en": "car",
+    "ja": "車",
+    "tier": 1
+  },
+  {
+    "en": "rice",
+    "ja": "ごはん",
+    "tier": 1
+  },
+  {
+    "en": "milk",
+    "ja": "ぎゅうにゅう",
+    "tier": 1
+  },
+  {
+    "en": "bread",
+    "ja": "パン",
+    "tier": 1
+  },
+  {
+    "en": "fish",
+    "ja": "魚",
+    "tier": 1
+  },
+  {
+    "en": "bird",
+    "ja": "鳥",
+    "tier": 1
+  },
+  {
+    "en": "hand",
+    "ja": "手",
+    "tier": 1
+  },
+  {
+    "en": "eye",
+    "ja": "目",
+    "tier": 1
+  },
+  {
+    "en": "nose",
+    "ja": "鼻",
+    "tier": 1
+  },
+  {
+    "en": "mouth",
+    "ja": "口",
+    "tier": 1
+  },
+  {
+    "en": "morning",
+    "ja": "朝",
+    "tier": 1
+  },
+  {
+    "en": "night",
+    "ja": "夜",
+    "tier": 1
+  },
+  {
+    "en": "today",
+    "ja": "今日",
+    "tier": 1
+  },
+  {
+    "en": "tomorrow",
+    "ja": "明日",
+    "tier": 1
+  },
+  {
+    "en": "yes",
+    "ja": "はい",
+    "tier": 1
+  },
+  {
+    "en": "hot",
+    "ja": "あつい",
+    "tier": 1
+  },
+  {
+    "en": "cold",
+    "ja": "つめたい",
+    "tier": 1
+  },
+  {
+    "en": "good",
+    "ja": "よい",
+    "tier": 1
+  },
+  {
+    "en": "new",
+    "ja": "あたらしい",
+    "tier": 1
+  },
+  {
+    "en": "old",
+    "ja": "ふるい",
+    "tier": 1
+  },
+  {
+    "en": "beautiful",
+    "ja": "うつくしい",
+    "tier": 2
+  },
+  {
+    "en": "difficult",
+    "ja": "むずかしい",
+    "tier": 2
+  },
+  {
+    "en": "important",
+    "ja": "重要な",
+    "tier": 2
+  },
+  {
+    "en": "dangerous",
+    "ja": "危険な",
+    "tier": 2
+  },
+  {
+    "en": "library",
+    "ja": "図書館",
+    "tier": 2
+  },
+  {
+    "en": "hospital",
+    "ja": "病院",
+    "tier": 2
+  },
+  {
+    "en": "restaurant",
+    "ja": "レストラン",
+    "tier": 2
+  },
+  {
+    "en": "station",
+    "ja": "駅",
+    "tier": 2
+  },
+  {
+    "en": "weather",
+    "ja": "天気",
+    "tier": 2
+  },
+  {
+    "en": "vegetable",
+    "ja": "野菜",
+    "tier": 2
+  },
+  {
+    "en": "breakfast",
+    "ja": "朝ごはん",
+    "tier": 2
+  },
+  {
+    "en": "holiday",
+    "ja": "休日",
+    "tier": 2
+  },
+  {
+    "en": "remember",
+    "ja": "おぼえている",
+    "tier": 2
+  },
+  {
+    "en": "forget",
+    "ja": "わすれる",
+    "tier": 2
+  },
+  {
+    "en": "travel",
+    "ja": "旅行する",
+    "tier": 2
+  },
+  {
+    "en": "borrow",
+    "ja": "借りる",
+    "tier": 2
+  },
+  {
+    "en": "lend",
+    "ja": "貸す",
+    "tier": 2
+  },
+  {
+    "en": "choose",
+    "ja": "えらぶ",
+    "tier": 2
+  },
+  {
+    "en": "believe",
+    "ja": "信じる",
+    "tier": 2
+  },
+  {
+    "en": "decide",
+    "ja": "決める",
+    "tier": 2
+  },
+  {
+    "en": "explain",
+    "ja": "説明する",
+    "tier": 2
+  },
+  {
+    "en": "invite",
+    "ja": "まねく",
+    "tier": 2
+  },
+  {
+    "en": "enjoy",
+    "ja": "楽しむ",
+    "tier": 2
+  },
+  {
+    "en": "quiet",
+    "ja": "静かな",
+    "tier": 2
+  },
+  {
+    "en": "busy",
+    "ja": "いそがしい",
+    "tier": 2
+  },
+  {
+    "en": "famous",
+    "ja": "有名な",
+    "tier": 2
+  },
+  {
+    "en": "popular",
+    "ja": "人気のある",
+    "tier": 2
+  },
+  {
+    "en": "expensive",
+    "ja": "高価な",
+    "tier": 2
+  },
+  {
+    "en": "cheap",
+    "ja": "安い",
+    "tier": 2
+  },
+  {
+    "en": "safe",
+    "ja": "安全な",
+    "tier": 2
+  },
+  {
+    "en": "early",
+    "ja": "早い",
+    "tier": 2
+  },
+  {
+    "en": "late",
+    "ja": "おそい",
+    "tier": 2
+  },
+  {
+    "en": "kind",
+    "ja": "親切な",
+    "tier": 2
+  },
+  {
+    "en": "strong",
+    "ja": "強い",
+    "tier": 2
+  },
+  {
+    "en": "weak",
+    "ja": "弱い",
+    "tier": 2
+  },
+  {
+    "en": "ticket",
+    "ja": "切符",
+    "tier": 2
+  },
+  {
+    "en": "bridge",
+    "ja": "橋",
+    "tier": 2
+  },
+  {
+    "en": "island",
+    "ja": "島",
+    "tier": 2
+  },
+  {
+    "en": "mountain",
+    "ja": "山",
+    "tier": 2
+  },
+  {
+    "en": "river",
+    "ja": "川",
+    "tier": 2
+  },
+  {
+    "en": "forest",
+    "ja": "森",
+    "tier": 2
+  },
+  {
+    "en": "village",
+    "ja": "村",
+    "tier": 2
+  },
+  {
+    "en": "neighbor",
+    "ja": "となりの人",
+    "tier": 2
+  },
+  {
+    "en": "message",
+    "ja": "伝言",
+    "tier": 2
+  },
+  {
+    "en": "achieve",
+    "ja": "達成する",
+    "tier": 3
+  },
+  {
+    "en": "environment",
+    "ja": "環境",
+    "tier": 3
+  },
+  {
+    "en": "experience",
+    "ja": "経験",
+    "tier": 3
+  },
+  {
+    "en": "opportunity",
+    "ja": "機会",
+    "tier": 3
+  },
+  {
+    "en": "necessary",
+    "ja": "必要な",
+    "tier": 3
+  },
+  {
+    "en": "knowledge",
+    "ja": "知識",
+    "tier": 3
+  },
+  {
+    "en": "imagine",
+    "ja": "想像する",
+    "tier": 3
+  },
+  {
+    "en": "improve",
+    "ja": "改善する",
+    "tier": 3
+  },
+  {
+    "en": "suggest",
+    "ja": "提案する",
+    "tier": 3
+  },
+  {
+    "en": "require",
+    "ja": "必要とする",
+    "tier": 3
+  },
+  {
+    "en": "ability",
+    "ja": "能力",
+    "tier": 3
+  },
+  {
+    "en": "adventure",
+    "ja": "冒険",
+    "tier": 3
+  },
+  {
+    "en": "courage",
+    "ja": "勇気",
+    "tier": 3
+  },
+  {
+    "en": "curious",
+    "ja": "好奇心の強い",
+    "tier": 3
+  },
+  {
+    "en": "customer",
+    "ja": "客",
+    "tier": 3
+  },
+  {
+    "en": "decision",
+    "ja": "決定",
+    "tier": 3
+  },
+  {
+    "en": "develop",
+    "ja": "発達させる",
+    "tier": 3
+  },
+  {
+    "en": "discover",
+    "ja": "発見する",
+    "tier": 3
+  },
+  {
+    "en": "education",
+    "ja": "教育",
+    "tier": 3
+  },
+  {
+    "en": "escape",
+    "ja": "逃げる",
+    "tier": 3
+  },
+  {
+    "en": "generous",
+    "ja": "気前のよい",
+    "tier": 3
+  },
+  {
+    "en": "government",
+    "ja": "政府",
+    "tier": 3
+  },
+  {
+    "en": "independent",
+    "ja": "独立した",
+    "tier": 3
+  },
+  {
+    "en": "influence",
+    "ja": "影響",
+    "tier": 3
+  },
+  {
+    "en": "information",
+    "ja": "情報",
+    "tier": 3
+  },
+  {
+    "en": "language",
+    "ja": "言語",
+    "tier": 3
+  },
+  {
+    "en": "magic",
+    "ja": "魔法",
+    "tier": 3
+  },
+  {
+    "en": "memory",
+    "ja": "記憶",
+    "tier": 3
+  },
+  {
+    "en": "nature",
+    "ja": "自然",
+    "tier": 3
+  },
+  {
+    "en": "practice",
+    "ja": "練習する",
+    "tier": 3
+  },
+  {
+    "en": "protect",
+    "ja": "守る",
+    "tier": 3
+  },
+  {
+    "en": "reason",
+    "ja": "理由",
+    "tier": 3
+  },
+  {
+    "en": "responsible",
+    "ja": "責任のある",
+    "tier": 3
+  },
+  {
+    "en": "society",
+    "ja": "社会",
+    "tier": 3
+  },
+  {
+    "en": "succeed",
+    "ja": "成功する",
+    "tier": 3
+  },
+  {
+    "en": "tradition",
+    "ja": "伝統",
+    "tier": 3
+  },
+  {
+    "en": "victory",
+    "ja": "勝利",
+    "tier": 3
+  },
+  {
+    "en": "journey",
+    "ja": "旅",
+    "tier": 3
+  },
+  {
+    "en": "How are you?",
+    "ja": "お元気ですか?",
+    "tier": 4
+  },
+  {
+    "en": "Nice to meet you.",
+    "ja": "はじめまして。",
+    "tier": 4
+  },
+  {
+    "en": "Thank you very much.",
+    "ja": "どうもありがとう。",
+    "tier": 4
+  },
+  {
+    "en": "I'm looking for my key.",
+    "ja": "かぎを探しています。",
+    "tier": 4
+  },
+  {
+    "en": "Could you help me?",
+    "ja": "手伝っていただけますか?",
+    "tier": 4
+  },
+  {
+    "en": "What time is it?",
+    "ja": "何時ですか?",
+    "tier": 4
+  },
+  {
+    "en": "I have no idea.",
+    "ja": "さっぱりわかりません。",
+    "tier": 4
+  },
+  {
+    "en": "Let's go together.",
+    "ja": "いっしょに行こう。",
+    "tier": 4
+  },
+  {
+    "en": "Don't give up!",
+    "ja": "あきらめるな!",
+    "tier": 4
+  },
+  {
+    "en": "It's up to you.",
+    "ja": "あなた次第です。",
+    "tier": 4
+  },
+  {
+    "en": "I'm used to it.",
+    "ja": "慣れています。",
+    "tier": 4
+  },
+  {
+    "en": "How much is this?",
+    "ja": "これはいくらですか?",
+    "tier": 4
+  },
+  {
+    "en": "See you tomorrow.",
+    "ja": "また明日。",
+    "tier": 4
+  },
+  {
+    "en": "I'll do my best.",
+    "ja": "全力をつくします。",
+    "tier": 4
+  },
+  {
+    "en": "Where is the station?",
+    "ja": "駅はどこですか?",
+    "tier": 4
+  },
+  {
+    "en": "Take care of yourself.",
+    "ja": "お大事に。",
+    "tier": 4
+  },
+  {
+    "en": "I'm afraid I can't.",
+    "ja": "残念ながらできません。",
+    "tier": 4
+  },
+  {
+    "en": "It's a piece of cake.",
+    "ja": "朝飯前だよ。",
+    "tier": 4
+  }
+]

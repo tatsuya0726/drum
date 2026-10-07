@@ -1,1 +1,33 @@
-{"enemies":{},"bg":{},"portraits":{}}
+{
+  "enemies": {},
+  "bg": {},
+  "portraits": {},
+  "rebirth": {
+    "characters": {
+      "hero": "rebirth/hero-silverblade.webp",
+      "guardian": "rebirth/companion-guardian.webp",
+      "mage": "rebirth/companion-mage.webp",
+      "cleric": "rebirth/companion-healer.webp",
+      "ranger": "rebirth/companion-archer.webp",
+      "duelist": "rebirth/companion-swordsman.webp",
+      "bard": "rebirth/companion-rogue.webp"
+    },
+    "enemies": {
+      "bellwarden": "rebirth/boss-bell-executioner.webp",
+      "eclipse": "rebirth/boss-hollow-king.webp",
+      "hound": "rebirth/enemy-hound.webp",
+      "wraith": "rebirth/enemy-wraith.webp",
+      "sentinel": "rebirth/enemy-sentinel.webp",
+      "acolyte": "rebirth/enemy-acolyte.webp",
+      "revenant": "rebirth/enemy-revenant.webp",
+      "oracle": "rebirth/enemy-oracle.webp",
+      "mirror": "rebirth/boss-mirror.webp"
+    },
+    "backgrounds": {
+      "town": "rebirth/bg-town.webp",
+      "forest": "rebirth/bg-forest.webp",
+      "abbey": "rebirth/bg-abbey.webp",
+      "throne": "rebirth/bg-throne.webp"
+    }
+  }
+}
