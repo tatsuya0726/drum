@@ -109,7 +109,7 @@ const poly = pts => (x, y) => { let c = false; for (let i = 0, j = pts.length - 
 const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
 /* マスク形状を 光源(左上)からの陰影で ramp(暗→明) に塗る。ディザつき */
 function shade(g, m, w, h, ramp, o = {}) {
-  const R = o.R || 4, k = o.k || 1.7, dith = o.dith == null ? .8 : o.dith, base = o.base == null ? (ramp.length - 1) / 2 : o.base, oy = o.oy || 0, ox = o.ox || 0;
+  const R = o.R || 4, k = o.k || 1.7, dith = o.dith == null ? .38 : o.dith, base = o.base == null ? (ramp.length - 1) / 2 : o.base, oy = o.oy || 0, ox = o.ox || 0;
   const d = new Float32Array(w * h).fill(1e9); for (let i = 0; i < w * h; i++) if (!m[i]) d[i] = 0;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = y * w + x; if (!m[i]) continue; const a = x > 0 ? d[i - 1] : 0, b = y > 0 ? d[i - w] : 0; d[i] = Math.min(d[i], Math.min(a, b) + 1); }
   for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) { const i = y * w + x; if (!m[i]) continue; const a = x < w - 1 ? d[i + 1] : 0, b = y < h - 1 ? d[i + w] : 0; d[i] = Math.min(d[i], Math.min(a, b) + 1); }
@@ -150,15 +150,30 @@ const CHARS = {
   keeper: { H: '#c89848', h: '#f0c878', d: '#8a6428', s: '#f8c8a0', S: '#d49878', e: '#202030', m: '#b0604a', r: '#4aa860', R: '#2a7038', y: '#f8d848', w: '#f8f0d8', W: '#c0b898', p: '#7a5a3a', P: '#523a22', b: '#4a3018' },
   elder: { H: '#eeeeee', h: '#ffffff', d: '#b8b8c8', s: '#f0c098', S: '#c89070', e: '#202030', m: '#a05040', r: '#8a4ab8', R: '#582c80', y: '#f8d848', w: '#eeeeee', W: '#b0b0c0', p: '#5a3a78', P: '#3a2450', b: '#4a3018' },
   kid: { H: '#e8a020', h: '#ffd868', d: '#a06810', s: '#f8c8a0', S: '#d49878', e: '#202030', m: '#b0604a', r: '#38a8e8', R: '#2070a8', y: '#fff', w: '#ffffff', W: '#b0c8e0', p: '#386888', P: '#244860', b: '#6a4020' },
-  guard: { H: '#6a3a1c', h: '#9a6030', d: '#3e2210', s: '#f0b890', S: '#c88860', e: '#202030', m: '#a05040', r: '#9aa4b8', R: '#5a6478', y: '#f8d848', w: '#c8d0e0', W: '#8890a8', p: '#4a5468', P: '#2c3444', b: '#3a3a44' }
+  granny: { H: '#e0e0ee', h: '#ffffff', d: '#a8a8c0', s: '#f0c098', S: '#c89070', e: '#202030', m: '#a05040', r: '#8a6ab8', R: '#5a3c88', y: '#f8d848', w: '#fff0f0', W: '#c8b8c8', p: '#8a6ab8', P: '#5a3c88', b: '#6a4020' },
+  farmer: { H: '#8a5a2c', h: '#b88040', d: '#583818', s: '#f0b890', S: '#c88860', e: '#202030', m: '#a05040', r: '#c8a040', R: '#8a6a20', y: '#a05030', w: '#f0e8d0', W: '#c0b890', p: '#5a6a8a', P: '#384868', b: '#4a3018' },
+  guard: { H: '#8890a8', h: '#d0d8e8', d: '#505870', s: '#f0b890', S: '#c88860', e: '#202030', m: '#a05040', r: '#9aa4b8', R: '#5a6478', y: '#f8d848', w: '#c8d0e0', W: '#8890a8', p: '#4a5468', P: '#2c3444', b: '#3a3a44' }
 };
 const charCache = {};
+const ed = (rows, list) => { const r = [...rows]; list.forEach(([i, c, str]) => { r[i] = r[i].slice(0, c) + str + r[i].slice(c + str.length); }); return r; };
+function variantRows(name, view) {
+  let top = view === 'f' ? F_TOP : view === 'b' ? B_TOP : S_TOP, leg0 = view === 's' ? S_LEG0 : F_LEG0, leg1 = view === 's' ? S_LEG1 : F_LEG1;
+  const f = view === 'f', b = view === 'b';
+  if (name === 'hero') top = ed(top, f || b ? [[4, 0, 'wwwwwwwwwwwwww']] : [[4, 1, 'wwwwwwwwwwww']]);
+  if (name === 'girl' || name === 'granny') top = f ? ed(top, [[7, 0, 'HH'], [7, 12, 'HH'], [8, 0, 'HH'], [8, 12, 'HH'], [9, 2, 'H'], [9, 12, 'H']]) : b ? ed(top, [[9, 2, 'HHHHHHHHHHd'], [10, 2, 'HHHHHHHHHHd'], [11, 3, 'HHHHHHHHH']]) : ed(top, [[8, 2, 'HH'], [9, 2, 'HH'], [10, 2, 'HH']]);
+  if (name === 'keeper' || name === 'farmer') top = f ? ed(top, [[11, 4, 'wwwwww'], [12, 4, 'wwwwww'], [13, 4, 'wwwwww']]) : s_ap(top, view);
+  if (name === 'elder') top = f ? ed(top, [[8, 2, 'sswwwwwwss'], [9, 3, 'wwwwwwww']]) : view === 's' ? ed(top, [[8, 7, 'wwww']]) : top;
+  if (name === 'guard') top = ed(top, f || b ? [[0, 0, '......yy......'], [1, 0, '.HHH.HhhH.HHH.']] : [[0, 0, '....yy........']]);
+  if (name === 'kid') { top = top.filter((_, i) => i !== 13); leg0 = leg0.filter((_, i) => i !== 2); leg1 = leg1.filter((_, i) => i !== 2); }
+  return [top, leg0, leg1];
+}
+const s_ap = (top, view) => view === 's' ? ed(top, [[11, 6, 'wwww'], [12, 6, 'wwww'], [13, 6, 'wwww']]) : top;
 function charFrames(name) {
   if (charCache[name]) return charCache[name]; const pal = CHARS[name];
-  const mk = (top, leg, flip) => { const c = outline(spriteStr([...top, ...leg], pal), 1, [20, 16, 32]); return flip ? art(c.width, c.height, g => { g.translate(c.width, 0); g.scale(-1, 1); g.drawImage(c, 0, 0); }) : c; };
+  const mk = (view, step, flip) => { const [t, l0, l1] = variantRows(name, view); const c = outline(spriteStr([...t, ...(step ? l1 : l0)], pal), 1, [20, 16, 32]); return flip ? art(c.width, c.height, g => { g.translate(c.width, 0); g.scale(-1, 1); g.drawImage(c, 0, 0); }) : c; };
   return charCache[name] = {
-    down: [mk(F_TOP, F_LEG0), mk(F_TOP, F_LEG1), mk(F_TOP, F_LEG1, true)], up: [mk(B_TOP, F_LEG0), mk(B_TOP, F_LEG1), mk(B_TOP, F_LEG1, true)],
-    right: [mk(S_TOP, S_LEG0), mk(S_TOP, S_LEG1), mk(S_TOP, S_LEG0)], left: [mk(S_TOP, S_LEG0, true), mk(S_TOP, S_LEG1, true), mk(S_TOP, S_LEG0, true)]
+    down: [mk('f', 0), mk('f', 1), mk('f', 1, true)], up: [mk('b', 0), mk('b', 1), mk('b', 1, true)],
+    right: [mk('s', 0), mk('s', 1), mk('s', 0)], left: [mk('s', 0, true), mk('s', 1, true), mk('s', 0, true)]
   };
 }
 
@@ -169,47 +184,53 @@ const RAMPS = {
   dark: ['#080818', '#201838', '#403068', '#685898', '#9888c8'], cap: ['#501010', '#a02818', '#e05028', '#ff8848', '#ffd0a0'], cream: ['#6a5030', '#a88858', '#d8b880', '#f0d8a8', '#fff8e0'],
   wing: ['#2a0a30', '#601848', '#a02860', '#d85888', '#ffa8c0'], wingd: ['#0a0818', '#281848', '#483078', '#6848a8', '#9078d0'], belly: ['#a07830', '#d0a850', '#f0d078', '#fff0a8', '#ffffe0']
 };
+function line(g, x0, y0, x1, y1, c) { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for (let i = 0; i <= n; i++) Px(g, Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), c); }
+const mirror = (pts, w) => pts.map(([x, y]) => [w - x, y]);
+const ell = (cx, cy, rx, ry) => (x, y) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 1;
+const anyOf = (...fs) => (x, y) => fs.some(f => f(x, y));
+function eye(g, x, y, rw, rh, pupil = '#101028') { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x, y, rw, rh, 0, 0, 7); g.fill(); Rc(g, Math.round(x) - 1, Math.round(y) - 1, 2, Math.max(2, rh), pupil); Px(g, Math.round(x) - 1, Math.round(y) - 1, '#fff'); }
 function monsterArt(kind, ramp) {
   const R = RAMPS[ramp];
   if (kind === 'slime') return outline(art(40, 36, (g, w, h) => {
-    const m = maskOf(w, h, (x, y) => Math.hypot((x - 20) / 17, (y - 25) / 10.5) < 1 || Math.hypot((x - 20) / 9, (y - 15) / 9) < 1 || Math.hypot((x - 20) / 4, (y - 7) / 6) < 1);
-    shade(g, m, w, h, R, { R: 5, k: 1.5 });
-    [[14, 24], [26, 24]].forEach(([ex, ey]) => { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(ex, ey, 3.2, 4, 0, 0, 7); g.fill(); g.fillStyle = '#101028'; g.fillRect(ex - 1, ey - 1, 3, 4); g.fillStyle = '#fff'; g.fillRect(ex - 1, ey - 1, 1, 1); });
+    shade(g, maskOf(w, h, anyOf(ell(20, 25, 17, 10.5), ell(20, 15, 9, 9), ell(20, 7, 4, 6))), w, h, R, { R: 5, k: 1.5 });
+    eye(g, 14, 24, 3.2, 4); eye(g, 26, 24, 3.2, 4);
     Rc(g, 15, 31, 10, 1, '#201030'); Rc(g, 14, 30, 1, 1, '#201030'); Rc(g, 25, 30, 1, 1, '#201030'); Rc(g, 17, 32, 6, 1, '#e86078');
     Rc(g, 12, 13, 3, 2, '#fff'); Rc(g, 11, 15, 1, 1, '#fff');
   }), .25);
-  if (kind === 'bat') return outline(art(48, 34, (g, w, h) => {
-    const WL = poly([[19, 14], [2, 3], [5, 12], [0, 17], [7, 19], [5, 26], [13, 22], [19, 22]]), WR = poly([[29, 14], [46, 3], [43, 12], [48, 17], [41, 19], [43, 26], [35, 22], [29, 22]]);
-    shade(g, maskOf(w, h, (x, y) => WL(x, y) || WR(x, y)), w, h, RAMPS.wing, { R: 3, k: 1.2 });
-    g.save(); g.globalCompositeOperation = 'source-over';
-    const body = maskOf(w, h, (x, y) => Math.hypot((x - 24) / 9, (y - 19) / 9) < 1 || poly([[17, 12], [19, 3], [22, 11]])(x, y) || poly([[31, 12], [29, 3], [26, 11]])(x, y));
-    shade(g, body, w, h, R, { R: 5, k: 1.5 }); g.restore();
-    [[21, 17], [27, 17]].forEach(([ex, ey]) => { Rc(g, ex - 2, ey - 2, 4, 4, '#fff'); Rc(g, ex - 1, ey - 1, 2, 3, '#e01020'); });
-    Rc(g, 21, 23, 1, 3, '#fff'); Rc(g, 26, 23, 1, 3, '#fff'); Rc(g, 22, 22, 4, 1, '#200808');
+  if (kind === 'bat') return outline(art(52, 38, (g, w, h) => {
+    const WLp = [[21, 17], [1, 6], [6, 15], [1, 22], [9, 23], [7, 31], [17, 26], [21, 26]], WRp = mirror(WLp, 52), WL = poly(WLp), WR = poly(WRp);
+    shade(g, maskOf(w, h, (x, y) => WL(x, y) || WR(x, y)), w, h, RAMPS.wing, { R: 3, k: 1.1 });
+    [[1, 6], [1, 22], [7, 31]].forEach(([tx, ty]) => { line(g, 21, 17, tx + 1, ty, RAMPS.wing[0]); line(g, 31, 17, 51 - tx, ty, RAMPS.wing[0]); });
+    shade(g, maskOf(w, h, anyOf(ell(26, 21, 10, 9.5), poly([[18, 15], [19, 3], [24, 12]]), poly([[34, 15], [33, 3], [28, 12]]))), w, h, R, { R: 5, k: 1.5 });
+    eye(g, 22, 20, 2.6, 3, '#d01020'); eye(g, 30, 20, 2.6, 3, '#d01020');
+    g.fillStyle = '#300810'; g.beginPath(); g.ellipse(26, 27, 4, 2.5, 0, 0, 7); g.fill(); Rc(g, 25, 28, 2, 1, '#e86078'); Rc(g, 22, 25, 1, 3, '#fff'); Rc(g, 30, 25, 1, 3, '#fff');
   }), .25);
-  if (kind === 'ghost') return outline(art(40, 46, (g, w, h) => {
-    const m = maskOf(w, h, (x, y) => (y < 22 && Math.hypot((x - 20) / 14, (y - 20) / 16) < 1) || (y >= 20 && Math.abs(x - 20) < 14 && y < 38 + 3 * Math.sin(x * .95)) || poly([[6, 24], [0, 30], [4, 34], [8, 30]])(x, y) || poly([[34, 24], [40, 30], [36, 34], [32, 30]])(x, y));
-    shade(g, m, w, h, R, { R: 6, k: 1.3 });
-    [[14, 19], [26, 19]].forEach(([ex, ey]) => { g.fillStyle = '#101030'; g.beginPath(); g.ellipse(ex, ey, 2.6, 4.5, 0, 0, 7); g.fill(); Px(g, ex - 1, ey - 2, '#fff'); });
-    g.fillStyle = '#101030'; g.beginPath(); g.ellipse(20, 29, 3, 3.5, 0, 0, 7); g.fill();
+  if (kind === 'ghost') return outline(art(48, 54, (g, w, h) => {
+    const AL = poly([[11, 26], [2, 19], [0, 24], [4, 29], [11, 32]]), AR = poly(mirror([[11, 26], [2, 19], [0, 24], [4, 29], [11, 32]], 48));
+    shade(g, maskOf(w, h, (x, y) => AL(x, y) || AR(x, y)), w, h, R, { R: 3, k: 1.1 });
+    shade(g, maskOf(w, h, (x, y) => y < 22 ? ell(24, 21, 15, 15)(x, y) : y < 52 && Math.abs(x - 24 - 3.5 * Math.sin((y - 22) * .2)) < Math.max(2, 15 - (y - 22) * .42)), w, h, R, { R: 6, k: 1.3 });
+    [[17, 21], [31, 21]].forEach(([ex, ey]) => { g.fillStyle = '#101030'; g.beginPath(); g.ellipse(ex, ey, 3.2, 5.5, 0, 0, 7); g.fill(); Rc(g, ex - 1, ey - 3, 2, 2, '#fff'); });
+    g.fillStyle = '#101030'; g.beginPath(); g.ellipse(24, 32, 3.5, 4.5, 0, 0, 7); g.fill(); Rc(g, 23, 34, 3, 2, '#c05078');
   }), .25);
   if (kind === 'mush') return outline(art(40, 40, (g, w, h) => {
-    shade(g, maskOf(w, h, (x, y) => (x - 20) * (x - 20) / 324 + (y - 15) * (y - 15) / 150 < 1 && y < 22), w, h, R, { R: 5, k: 1.4 });
-    shade(g, maskOf(w, h, (x, y) => Math.hypot((x - 20) / 9, (y - 29) / 10) < 1 && y > 21), w, h, RAMPS.cream, { R: 4, k: 1.4 });
+    shade(g, maskOf(w, h, (x, y) => ell(20, 15, 18, 12.2)(x, y) && y < 22), w, h, R, { R: 5, k: 1.4 });
+    shade(g, maskOf(w, h, (x, y) => ell(20, 29, 9, 10)(x, y) && y > 21), w, h, RAMPS.cream, { R: 4, k: 1.4 });
     [[12, 12, 3], [25, 10, 3], [20, 17, 2], [31, 17, 2], [9, 18, 2]].forEach(([x, y, r]) => { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x, y, r, r - .5, 0, 0, 7); g.fill(); });
     [[16, 28], [24, 28]].forEach(([ex, ey]) => { Rc(g, ex - 1, ey - 2, 3, 5, '#201020'); Px(g, ex - 1, ey - 2, '#fff'); }); Rc(g, 18, 34, 5, 1, '#803030');
   }), .25);
   /* dragon */
-  return outline(art(96, 84, (g, w, h) => {
-    const WL = poly([[30, 40], [3, 6], [12, 30], [2, 38], [14, 48], [8, 60], [28, 56]]), WR = poly([[66, 40], [93, 6], [84, 30], [94, 38], [82, 48], [88, 60], [68, 56]]);
-    shade(g, maskOf(w, h, (x, y) => WL(x, y) || WR(x, y)), w, h, RAMPS.wing, { R: 4, k: 1.2 });
-    const body = maskOf(w, h, (x, y) => Math.hypot((x - 48) / 25, (y - 55) / 21) < 1 || Math.hypot((x - 48) / 17, (y - 25) / 14) < 1 || Math.hypot((x - 48) / 11, (y - 35) / 9) < 1 || Math.hypot((x - 30) / 8, (y - 75) / 8) < 1 || Math.hypot((x - 66) / 8, (y - 75) / 8) < 1 || Math.hypot((x - 80) / 12, (y - 66) / 5) < 1 || Math.hypot((x - 88) / 6, (y - 60) / 3) < 1);
-    shade(g, body, w, h, R, { R: 6, k: 1.5 });
-    shade(g, maskOf(w, h, (x, y) => Math.hypot((x - 48) / 14, (y - 55) / 17) < 1), w, h, RAMPS.belly, { R: 5, k: 1 });
-    for (let i = 0; i < 5; i++) Rc(g, 38, 46 + i * 5, 20, 1, '#a07830');
-    g.fillStyle = '#f0e8c0'; [[34, 14, 28, 2, 31, 12], [62, 14, 68, 2, 65, 12]].forEach(([x1, y1, x2, y2, x3, y3]) => { g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.lineTo(x3 + (x2 > 48 ? 5 : -2), y3 + 4); g.fill(); });
-    [[40, 22], [56, 22]].forEach(([ex, ey]) => { Rc(g, ex - 3, ey - 2, 7, 5, '#fff060'); Rc(g, ex, ey - 2, 2, 5, '#c01010'); });
-    Rc(g, 44, 34, 2, 2, '#200'); Rc(g, 51, 34, 2, 2, '#200'); Rc(g, 40, 38, 17, 2, '#300'); for (let i = 0; i < 4; i++) { Rc(g, 41 + i * 4, 38, 2, 3, '#fff'); }
+  return outline(art(100, 92, (g, w, h) => {
+    const WLp = [[30, 48], [2, 8], [11, 29], [1, 41], [13, 52], [8, 66], [30, 62]], WRp = mirror(WLp, 100), WL = poly(WLp), WR = poly(WRp);
+    shade(g, maskOf(w, h, (x, y) => WL(x, y) || WR(x, y)), w, h, RAMPS.wing, { R: 4, k: 1.1 });
+    [[2, 8], [1, 41], [8, 66]].forEach(([tx, ty]) => { line(g, 29, 47, tx + 1, ty, RAMPS.wing[0]); line(g, 71, 47, 99 - tx, ty, RAMPS.wing[0]); });
+    shade(g, maskOf(w, h, anyOf(ell(50, 64, 23, 21), ell(50, 29, 17, 14), ell(50, 40, 11, 7), ell(34, 84, 10, 7), ell(66, 84, 10, 7), ell(26, 62, 6, 11), ell(74, 62, 6, 11), ell(75, 80, 9, 8), ell(83, 75, 7, 6), ell(90, 68, 5.5, 5), ell(95, 60, 4, 4))), w, h, R, { R: 6, k: 1.4 });
+    shade(g, maskOf(w, h, ell(50, 66, 13, 17)), w, h, RAMPS.belly, { R: 5, k: 1 }); for (let i = 0; i < 5; i++) Rc(g, 39, 56 + i * 5, 22, 1, '#a07830');
+    [[[34, 20], [25, 3], [31, 2], [43, 14]], [[66, 20], [75, 3], [69, 2], [57, 14]]].forEach(pts => { g.fillStyle = '#f0e8c0'; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.fill(); g.fillStyle = '#a89860'; g.fillRect(pts[1][0] + (pts[1][0] < 50 ? 1 : -1), pts[1][1] + 1, 1, 6); });
+    [[42, 27], [58, 27]].forEach(([ex, ey]) => { Rc(g, ex - 3, ey - 2, 7, 4, '#fff060'); Rc(g, ex, ey - 2, 2, 4, '#c01010'); });
+    line(g, 36, 21, 46, 25, '#200808'); line(g, 36, 22, 46, 26, '#200808'); line(g, 64, 21, 54, 25, '#200808'); line(g, 64, 22, 54, 26, '#200808');
+    Rc(g, 46, 36, 2, 2, '#200'); Rc(g, 53, 36, 2, 2, '#200'); Rc(g, 42, 42, 17, 4, '#380808'); Rc(g, 45, 45, 11, 1, '#e86078');
+    for (let i = 0; i < 4; i++) { Rc(g, 43 + i * 4, 42, 2, 3, '#fff'); } for (let i = 0; i < 3; i++) Rc(g, 45 + i * 4, 45, 2, 2, '#fff');
+    [[22, 71], [26, 72], [30, 71], [70, 71], [74, 72], [78, 71]].forEach(([x, y]) => { Rc(g, x, y, 2, 3, '#f8f0d0'); });
   }), .25);
 }
 const enemyArt = {};
@@ -269,6 +290,7 @@ function worldTile(t, z, v, f, nb) {
   return TL(`t${t}_${z}_${v}`, g => {
     if (t === 3) { const p = PZ[z].path; Rc(g, 0, 0, 16, 16, p[1]); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const n = hash2(x + v * 7, y + 40 * z); if (n < .12) Px(g, x, y, p[0]); else if (n > .9) Px(g, x, y, p[2]); } return; }
     grassBase(g, z, v);
+    if (t === 1 || t === 4) { g.fillStyle = 'rgba(0,20,0,.3)'; g.beginPath(); g.ellipse(t === 4 ? 10 : 9, 14, t === 4 ? 7 : 6, 2, 0, 0, 7); g.fill(); }
     if (t === 1) g.drawImage(treeLayer(z), -1, -1); else if (t === 4) g.drawImage(mountLayer(z), -1, -1);
     else if (t === 5) g.drawImage(worldTownLayer(), -1, -1); else if (t === 6) g.drawImage(worldCastleLayer(), -1, -1); else if (t === 7) g.drawImage(flowerLayer(), -1, -1);
   });
@@ -283,7 +305,7 @@ function cobble(P, v) {
 }
 function shingle(c, bottom) {
   return TL('roof' + c + bottom, g => {
-    const R = c === 'r' ? ['#601410', '#a82418', '#d84028', '#f87858'] : ['#142860', '#2048a8', '#3870d8', '#68a0f8'];
+    const R = { r: ['#601410', '#a82418', '#d84028', '#f87858'], q: ['#142860', '#2048a8', '#3870d8', '#68a0f8'], g: ['#0c3818', '#1c7030', '#38a048', '#70d078'], o: ['#703008', '#b86018', '#e89028', '#ffc860'] }[c];
     Rc(g, 0, 0, 16, 16, R[1]);
     for (let r = 0; r < 4; r++) { const y = r * 4; Rc(g, 0, y, 16, 1, R[3]); Rc(g, 0, y + 3, 16, 1, R[0]); const off = r % 2 ? 4 : 0; for (let x = off; x < 16; x += 8) { Rc(g, x, y + 1, 1, 3, R[0]); Rc(g, x + 1, y + 1, 2, 1, R[2]); } }
     if (!bottom) { Rc(g, 0, 0, 16, 2, R[3]); Rc(g, 0, 2, 16, 1, R[0]); } else { Rc(g, 0, 13, 16, 3, R[0]); Rc(g, 0, 12, 16, 1, R[2]); }
@@ -313,54 +335,50 @@ function barrel(P) { return TL('brl', g => { Rc(g, 0, 0, 16, 16, P.s1); g.save()
 function fountain(P, f) { return TL('fnt' + f, g => { Rc(g, 0, 0, 16, 16, '#9a9ab0'); Rc(g, 0, 0, 16, 1, '#d8d8ec'); Rc(g, 1, 1, 14, 14, '#2c68d8'); for (let i = 0; i < 3; i++) Rc(g, (i * 5 + f * 3) % 12 + 1, 3 + i * 4, 4, 1, '#a8d8ff'); Rc(g, 0, 15, 16, 1, '#585868'); }); }
 function stoneWall(P) { return TL('swl', g => { Rc(g, 0, 0, 16, 16, '#686878'); for (let r = 0; r < 4; r++) { const off = r % 2 ? 4 : 0; for (let c = -1; c < 3; c++) { const x = off + c * 8, y = r * 4; Rc(g, x + 1, y, 7, 3, '#8a8a9c'); Rc(g, x + 1, y, 7, 1, '#b8b8cc'); Rc(g, x + 1, y + 2, 7, 1, '#4a4a58'); } } }); }
 function exitTile(P) { return TL('ext', g => { Rc(g, 0, 0, 16, 16, P.s2); Rc(g, 0, 0, 16, 2, P.s3); for (let i = 0; i < 4; i++) Rc(g, 2 + i * 4, 6, 2, 8, P.s3); Rc(g, 0, 14, 16, 2, '#183c2c'); }); }
-/* 町の地図: ^石かべ ,しばふ .石だたみ R/Q屋根 r/q屋根下 W/w/D かべ・まど・とびら C カウンター F 花壇 B たる U 噴水 T 木 X 出口 */
-const TOWN_MAPS = [
-  [
-    "^^^^^^^^^^^^^^^^^^^^",
-    "^TT,,,,,,,,,,,,,,TT^",
-    "^T,RRRR,,,,,,QQQQ,T^",
-    "^,,rrrr,,,,,,qqqq,,^",
-    "^,,WwDW,,CCCC,WDwW,^",
-    "^,F...........,...,^",
-    "^,,..F..UU..F..B...^",
-    "^,,.....UU.........^",
-    "^,B....,,,,....,,,,^",
-    "^,,.....,,,.....,,T^",
-    "^,F...............,^",
-    "^T,,..B......B....T^",
-    "^T,,,..........,,,T^",
-    "^TT,,,,,....,,,,,TT^",
-    "^^^^^^^^.XX.^^^^^^^^"],
-  [
-    "^^^^^^^^^^^^^^^^^^^^",
-    "^TTT,,,,,,,,,,,,TTT^",
-    "^T,QQQQ,,RRRR,,,,,T^",
-    "^,,qqqq,,rrrr,,,,,,^",
-    "^,,WDwW,CCCCC,WwDW,^",
-    "^,,.........,.....,^",
-    "^,F..B.....B....F,,^",
-    "^,,...UU.UU.......,^",
-    "^,,...UU.UU...B...,^",
-    "^,B...............,^",
-    "^,,,,..F.....F,,,,,^",
-    "^T,,,............,T^",
-    "^T,,,,.......,,,,,,^",
-    "^TT,,,,,....,,,,TT,^",
-    "^^^^^^^^.XX.^^^^^^^^"]
+/* 町の地図(文字): ^石かべ ,しばふ .石だたみ R/Q/G/O 屋根(赤/青/緑/橙) r/q/g/o 屋根の下 W/w/D かべ・まど・とびら C カウンター F 花壇 B たる U 水 T 木 X 出口 */
+const TOWN_CFG = [
+  { // ハロータウン 36x28
+    w: 36, h: 28, exit: [17, 2],
+    roads: [[2, 5, 32, 4], [16, 9, 4, 18], [4, 9, 28, 6], [2, 19, 32, 2]],
+    houses: [[3, 2, 6, 'r', 'inn', ''], [12, 2, 5, 'q', 'house', 'ハンナ'], [21, 2, 6, 'g', 'school', ''], [30, 2, 4, 'o', 'house', 'ジョン'], [3, 16, 5, 'g', 'house', 'メアリー'], [11, 16, 5, 'r', 'house', 'トム'], [21, 16, 6, 'q', 'house', 'エマ'], [29, 16, 4, 'o', 'house', 'サム']],
+    ponds: [[17, 11, 2, 2]], counters: [[8, 8, 4], [24, 8, 4]],
+    decos: [[6, 10, 'F'], [6, 13, 'F'], [29, 10, 'F'], [29, 13, 'F'], [12, 12, 'F'], [23, 12, 'F'], [7, 8, 'B'], [12, 8, 'B'], [23, 8, 'B'], [28, 8, 'B'], [14, 22, 'F'], [21, 22, 'F'], [3, 22, 'T'], [5, 24, 'T'], [8, 22, 'T'], [10, 25, 'T'], [12, 23, 'T'], [4, 26, 'T'], [23, 22, 'T'], [26, 24, 'T'], [29, 22, 'T'], [31, 25, 'T'], [33, 23, 'T'], [27, 26, 'T'], [1, 1, 'T'], [34, 1, 'T'], [1, 26, 'T'], [34, 26, 'T']],
+    npcs: [
+      { key: 'boga', n: 'ボガ', c: 'keeper', x: 9, y: 7, type: 'shop', still: true },
+      { key: 'omi', n: 'おばあさん', c: 'granny', x: 25, y: 7, type: 'omikuji', still: true },
+      { key: 'mina', n: 'ミナ', c: 'girl', x: 13, y: 11, type: 'phrase' }, { key: 'taro', n: 'タロ', c: 'kid', x: 22, y: 12, type: 'quiz' },
+      { key: 'elder', n: 'ちょうろう', c: 'elder', x: 15, y: 12, type: 'elder', still: true }, { key: 'guard', n: 'へいし', c: 'guard', x: 20, y: 24, type: 'phrase', still: true, dir: 'left' },
+      { key: 'leo', n: 'レオ', c: 'guard', x: 28, y: 12, type: 'phrase' }, { key: 'mom', n: 'かあさん', c: 'farmer', x: 9, y: 19, type: 'phrase' }]
+  },
+  { // ワードの村 32x24
+    w: 32, h: 24, exit: [15, 2],
+    roads: [[2, 5, 28, 4], [14, 9, 4, 14], [3, 9, 26, 4], [2, 17, 28, 2]],
+    houses: [[3, 2, 5, 'q', 'inn', ''], [10, 2, 6, 'o', 'house', 'ルーク'], [20, 2, 5, 'r', 'school', ''], [27, 2, 3, 'g', 'house', 'アン'], [3, 14, 5, 'g', 'house', 'ピート'], [10, 14, 4, 'r', 'house', 'ケイト'], [19, 14, 5, 'o', 'house', 'ボブ'], [26, 14, 4, 'q', 'house', 'リリー']],
+    ponds: [[20, 10, 4, 2]], counters: [[7, 8, 3], [22, 8, 3]],
+    decos: [[5, 10, 'F'], [5, 12, 'F'], [12, 11, 'F'], [26, 10, 'F'], [28, 12, 'F'], [6, 8, 'B'], [10, 8, 'B'], [21, 8, 'B'], [25, 8, 'B'], [12, 20, 'F'], [19, 20, 'F'], [3, 20, 'T'], [5, 21, 'T'], [8, 20, 'T'], [10, 22, 'T'], [21, 20, 'T'], [24, 21, 'T'], [27, 20, 'T'], [29, 22, 'T'], [1, 1, 'T'], [30, 1, 'T'], [1, 22, 'T'], [30, 22, 'T']],
+    npcs: [
+      { key: 'don', n: 'ドン', c: 'keeper', x: 8, y: 7, type: 'shop', still: true },
+      { key: 'omi', n: 'おばあさん', c: 'granny', x: 23, y: 7, type: 'omikuji', still: true },
+      { key: 'lisa', n: 'リサ', c: 'girl', x: 9, y: 10, type: 'phrase' }, { key: 'ken', n: 'ケン', c: 'kid', x: 25, y: 12, type: 'quiz' },
+      { key: 'elder', n: 'ちょうろう', c: 'elder', x: 12, y: 10, type: 'elder', still: true }, { key: 'guard', n: 'せんし', c: 'guard', x: 16, y: 20, type: 'phrase', still: true, dir: 'up' },
+      { key: 'trav', n: 'たびびと', c: 'guard', x: 6, y: 11, type: 'phrase' }, { key: 'farm', n: 'のうふ', c: 'farmer', x: 9, y: 18, type: 'phrase' }]
+  }
 ];
-const SOLID_TOWN = new Set(['^', 'R', 'Q', 'r', 'q', 'W', 'w', 'C', 'F', 'B', 'U', 'T']);
+const SOLID_TOWN = new Set(['^', 'R', 'Q', 'G', 'O', 'r', 'q', 'g', 'o', 'W', 'w', 'C', 'F', 'B', 'U', 'T']);
+const ROOF = { R: ['r', 0], r: ['r', 1], Q: ['q', 0], q: ['q', 1], G: ['g', 0], g: ['g', 1], O: ['o', 0], o: ['o', 1] };
 function townTile(ch, idx, x, y, f) {
   const P = TOWN_PAL[idx], v = (hash2(x, y) * 2) | 0;
+  if (ROOF[ch]) return shingle(ROOF[ch][0], ROOF[ch][1]);
   switch (ch) {
-    case '.': case 'D': case 'X': return ch === 'X' ? exitTile(P) : cobble(P, v);
+    case '.': case 'X': return ch === 'X' ? exitTile(P) : cobble(P, v);
+    case 'D': return wallTile('D');
     case ',': return TL(`tg${idx}${v}${(hash2(x, y + 3) * 3) | 0}`, g => grassBase(g, 0, (hash2(x, y) * 3) | 0, P.gr));
-    case '^': return stoneWall(P); case 'R': return shingle('r', false); case 'r': return shingle('r', true); case 'Q': return shingle('q', false); case 'q': return shingle('q', true);
+    case '^': return stoneWall(P);
     case 'W': return wallTile('W'); case 'w': return wallTile('w'); case 'C': return counterTile(P); case 'F': return flowerbed(P); case 'B': return barrel(P); case 'U': return fountain(P, f);
-    case 'T': return TL(`tt${idx}`, g => { grassBase(g, 0, 1, P.gr); g.drawImage(treeLayer(0), -1, -1); });
+    case 'T': return TL(`tt${idx}`, g => { grassBase(g, 0, 1, P.gr); g.fillStyle = 'rgba(0,20,0,.3)'; g.beginPath(); g.ellipse(9, 14, 6, 2, 0, 0, 7); g.fill(); g.drawImage(treeLayer(0), -1, -1); });
   }
   return cobble(P, 0);
 }
-function drawDoorOver(g, x, y) { }
 
 /* ---------------------------------------------------------------- 世界マップ */
 const MW = 48, MH = 40, START = [6, 34];
@@ -400,18 +418,21 @@ const WALK = new Set([0, 3, 5, 6, 7]);
 /* ---------------------------------------------------------------- シーン(世界/町) */
 let scene = { kind: 'world' };
 function buildTown(idx) {
-  const rows = TOWN_MAPS[idx], h = rows.length, w = Math.max(...rows.map(r => r.length));
-  const map = rows.map(r => r.padEnd(w, '^'));
-  const doors = {}; const dcols = [];
-  map.forEach((r, y) => [...r].forEach((c, x) => { if (c === 'D') dcols.push([x, y]); }));
-  const names = idx === 0 ? ['inn', 'inn'] : ['inn', 'inn'];
-  dcols.forEach(([x, y], i) => doors[x + ',' + y] = i === 0 ? 'inn' : 'house');
-  const NP = [
-    [{ n: 'ボガ', c: 'keeper', x: 10, y: 3, type: 'shop', still: true, dir: 'down' }, { n: 'ミナ', c: 'girl', x: 6, y: 7, type: 'phrase' }, { n: 'タロ', c: 'kid', x: 14, y: 9, type: 'quiz' }, { n: 'ちょうろう', c: 'elder', x: 10, y: 9, type: 'elder', still: true }, { n: 'へいし', c: 'guard', x: 8, y: 13, type: 'phrase', still: true, dir: 'down' }],
-    [{ n: 'ドン', c: 'keeper', x: 10, y: 3, type: 'shop', still: true, dir: 'down' }, { n: 'リサ', c: 'girl', x: 12, y: 6, type: 'phrase' }, { n: 'ケン', c: 'kid', x: 5, y: 9, type: 'quiz' }, { n: 'ちょうろう', c: 'elder', x: 9, y: 10, type: 'elder', still: true }, { n: 'たびびと', c: 'guard', x: 15, y: 11, type: 'phrase' }]
-  ][idx].map(n => ({ ...n, px: n.x * TS, py: n.y * TS, dir: n.dir || 'down', t: 0, timer: rnd(1, 3), moving: false }));
-  const exits = []; map.forEach((r, y) => [...r].forEach((c, x) => { if (c === 'X') exits.push([x, y]); }));
-  return { kind: 'town', idx, map, w, h, doors, npcs: NP, start: [exits[0][0], exits[0][1] - 1], name: TOWNS[idx].name };
+  const c = TOWN_CFG[idx], w = c.w, h = c.h, g = Array.from({ length: h }, () => Array(w).fill(','));
+  const set = (x, y, ch) => { if (x >= 0 && y >= 0 && x < w && y < h) g[y][x] = ch; };
+  const rect = (x, y, rw, rh, ch) => { for (let j = 0; j < rh; j++) for (let i = 0; i < rw; i++) set(x + i, y + j, ch); };
+  rect(0, 0, w, 1, '^'); rect(0, h - 1, w, 1, '^'); rect(0, 0, 1, h, '^'); rect(w - 1, 0, 1, h, '^');
+  c.roads.forEach(r => rect(...r, '.'));
+  const doors = {};
+  c.houses.forEach(([x, y, wd, col, kind, who]) => {
+    const RT = { r: 'Rr', q: 'Qq', g: 'Gg', o: 'Oo' }[col], dx = Math.floor(wd / 2);
+    for (let i = 0; i < wd; i++) { set(x + i, y, RT[0]); set(x + i, y + 1, RT[1]); set(x + i, y + 2, i === dx ? 'D' : (i % 2 === 0 ? 'w' : 'W')); }
+    doors[(x + dx) + ',' + (y + 2)] = { kind, who }; for (let i = -1; i <= 1; i++) set(x + dx + i, y + 3, '.');
+  });
+  c.ponds.forEach(r => rect(...r, 'U')); c.counters.forEach(([x, y, l]) => rect(x, y, l, 1, 'C')); c.decos.forEach(([x, y, ch]) => set(x, y, ch));
+  rect(c.exit[0], h - 1, c.exit[1], 1, 'X');
+  const NP = c.npcs.map(n => ({ ...n, id: idx + '_' + n.key, px: n.x * TS, py: n.y * TS, dir: n.dir || 'down', t: 0, timer: rnd(1, 3), moving: false }));
+  return { kind: 'town', idx, map: g.map(r => r.join('')), w, h, doors, npcs: NP, start: [c.exit[0], h - 2], name: TOWNS[idx].name };
 }
 const sceneW = () => scene.kind === 'world' ? MW : scene.w, sceneH = () => scene.kind === 'world' ? MH : scene.h;
 function npcAt(x, y) { return scene.kind === 'town' ? scene.npcs.find(n => (n.x === x && n.y === y) || (n.moving && n.tx === x && n.ty === y)) : null; }
@@ -517,9 +538,9 @@ const canSpeak = 'speechSynthesis' in window;
 const SAVE_KEY = 'english_quest_v2';
 const maxHpOf = l => 30 + (l - 1) * 9, maxMpOf = l => 6 + (l - 1) * 2, atkOf = l => 8 + l * 3, needOf = l => 22 + l * 18;
 let S = null;
-function newSave() { return { lv: 1, exp: 0, hp: 30, mp: 6, gold: 20, herbs: 3, x: START[0], y: START[1], words: {}, cleared: false, wins: 0, best: 0, ok: 0, ng: 0, talks: 0 }; }
+function newSave() { return { lv: 1, exp: 0, hp: 30, mp: 6, gold: 20, herbs: 3, x: START[0], y: START[1], words: {}, cleared: false, wins: 0, best: 0, ok: 0, ng: 0, talks: 0, met: {}, ti: {}, phr: {} }; }
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { } }
-function load() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.lv ? s : null; } catch (e) { return null; } }
+function load() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (!s || !s.lv) return null; s.met = s.met || {}; s.ti = s.ti || {}; s.phr = s.phr || {}; return s; } catch (e) { return null; } }
 function rec(en, ok) { const w = S.words[en] || (S.words[en] = { o: 0, n: 0 }); ok ? w.o++ : w.n++; ok ? S.ok++ : S.ng++; }
 
 /* ---------------------------------------------------------------- 状態 */
@@ -708,8 +729,54 @@ async function fxSlash() { B.fx = { t: 'slash', p: 0 }; await tween(260, p => B.
 async function fxFire() { B.fx = { t: 'fire', p: 0 }; for (let i = 0; i < 20; i++) burst(W / 2 + rnd(-24, 24), 100, pick(['#f80', '#ff0', '#f33']), 3); await tween(500, p => B.fx.p = p); B.fx = null; }
 
 /* ---------------------------------------------------------------- 町のイベント */
+/* えいごフレーズ集 (場面べつ)  en|ja|つかいかた */
+const G = (intro, txt) => ({ intro, list: txt.split(';').map(t => { const [en, ja, use] = t.split('|'); return { en, ja, use }; }) });
+const GROUPS = {
+  greet: G('あいさつを ひとつ おしえよう。', `Good morning.|おはよう。|あさ(ごぜんちゅう)の あいさつ;Good evening.|こんばんは。|ゆうがた いこうの あいさつ;Good night.|おやすみなさい。|ねる まえに;How are you?|お元気ですか?|あいさつの あとの ひとこと;I'm fine, thank you.|元気です、ありがとう。|How are you? への こたえ;Nice to meet you.|はじめまして。|はじめて あう ひとに;See you later.|またあとでね。|わかれる ときに;Long time no see.|ひさしぶり!|ひさしぶりに あった ときに;What's your name?|お名前は?|なまえを たずねる;My name is Leo.|私の名前はレオです。|じこしょうかい`),
+  shop: G('おみせでの えいごを おしえよう。', `How much is this?|これはいくらですか?|ねだんを きく;I'll take it.|それをください。|かうと きめた とき;Do you have a bigger one?|もっと大きいのはありますか?|サイズを たずねる;That's too expensive.|高すぎます。|ねだんが たかい とき;Can I pay by card?|カードで払えますか?|しはらいの ほうほう;Just looking, thank you.|見ているだけです、ありがとう。|みているだけの とき;Can I try this on?|これを試着してもいいですか?|ようふくを きてみたい とき;Could you wrap it, please?|包んでいただけますか?|プレゼントの とき`),
+  dir: G('みちあんないの えいごを おしえよう。', `Where is the station?|駅はどこですか?|ばしょを たずねる;Go straight.|まっすぐ行ってください。|みちを おしえる;Turn left at the corner.|角を左に曲がってください。|みちを おしえる;It's on your right.|右手にあります。|ばしょを おしえる;How far is it?|どのくらい遠いですか?|きょりを たずねる;Is it near here?|この近くですか?|ちかさを たずねる;I'm lost.|道に迷いました。|まいごの とき;Could you show me the way?|道を教えていただけますか?|ていねいな おねがい`),
+  travel: G('たびで つかえる えいごを おしえよう。', `I'd like to buy a ticket.|切符を買いたいのですが。|えきや くうこうで;What time does it leave?|何時に出発しますか?|じこくを たずねる;Have a nice trip!|いい旅を!|みおくる とき;Could you take a picture?|写真を撮っていただけますか?|かんこうちで;Which way is the airport?|空港はどちらですか?|くうこうを さがす とき;I'm here on vacation.|休暇で来ています。|にゅうこくの とき;Where are you from?|どちらから来ましたか?|しゅっしんを たずねる;I'm from Japan.|日本から来ました。|じこしょうかい`),
+  food: G('しょくじの えいごを おしえよう。', `I'd like some water, please.|お水をください。|ちゅうもん;What do you recommend?|おすすめは何ですか?|ちゅうもん;It's delicious!|おいしい!|かんそう;Check, please.|お会計をお願いします。|レストランで;I'm hungry.|おなかがすいた。|くうふく;I'm full.|おなかいっぱい。|まんぷく;Could I have the menu?|メニューをいただけますか?|ちゅうもんの まえ;No onions, please.|玉ねぎ抜きでお願いします。|たべられない ものが ある とき`),
+  tips: G('ぼうけんしゃに ひびく ことばを おしえよう。', `Practice makes perfect.|習うより慣れろ。|ことわざ;Never give up!|決してあきらめるな!|はげまし;Better late than never.|遅くてもやらないよりまし。|ことわざ;Time flies.|光陰矢のごとし。|ことわざ;Actions speak louder than words.|行動は言葉より雄弁。|ことわざ;Every cloud has a silver lining.|苦あれば楽あり。|ことわざ;You can do it!|君ならできる!|はげまし;Good luck!|幸運を!|おうえん`),
+  weather: G('てんきの えいごを おしえよう。', `It's sunny today.|今日は晴れです。|てんき;It looks like rain.|雨が降りそうです。|てんき;It's getting cold.|寒くなってきました。|きせつ;What a beautiful day!|なんて素敵な日でしょう!|かんそう;It's too hot.|暑すぎます。|かんそう;The weather is nice.|天気がいいですね。|ざつだん`)
+};
+const PHRASE_JA = {}; Object.values(GROUPS).forEach(g => g.list.forEach(p => PHRASE_JA[p.en] = p.ja));
+/* NPCの会話 (会話するたびに つぎのページへ)。{n}=なまえ */
+const TALK = {
+  '0_mina': { g: 'greet', chat: [["{n}「こんにちは! あなた、はじめて みる かおね。」", "{n}「ここは ハロータウン。\n ことばを まなぶ たびびとが あつまる まちなの。」"], ["{n}「まちの そとには まものが いるわ。\n こたえを えらんで こうげきするの。」", "{n}「すばやく こたえると かいしんの いちげきが でやすいんですって!」"], ["{n}「ひだりうえの やどやは ひとばん 5ゴールド。\n HPも MPも ぜんかいふくよ。」"], ["{n}「わたしの ゆめはね、えいごで せかいじゅうの ひとと ともだちに なること!」"]] },
+  '0_taro': { chat: [["{n}「ぼく タロ! えいごが だいすきなんだ。」", "{n}「ぼくと クイズしよう!\n あたると おこづかいを あげるよ。」"], ["{n}「おとなは むずかしい ことばを しってるけど、ぼくだって まけないぞ!」"], ["{n}「おおきく なったら せかいじゅうを たびするんだ!」"]] },
+  '0_elder': { chat: [["{n}「ほっほっほ。よくぞ きなすった。」", "{n}「ワードドラゴンは みぎうえの ドラゴンじょうに すんでおる。」", "{n}「じゃが いまのままでは かてぬ。Lv8 まで きたえるのじゃ。」"], ["{n}「にがてな ことばは ノートに のこる。\n よく でやすく なるから ふくしゅう するのじゃぞ。」"], ["{n}「ひがしの『ワードの むら』には ものしりが おる。\n みちなりに すすむと よいぞ。」"]] },
+  '0_guard': { g: 'dir', chat: [["{n}「ここは まちの でぐちだ。\n そとの まものは つよいから きを つけろ。」"], ["{n}「みちを あるくと まものに あいにくい。\n くさむらは よく でるぞ。」"], ["{n}「やくそうは どうぐやで かえる。\n わすれず よういして いけ。」"]] },
+  '0_leo': { g: 'tips', chat: [["{n}「おれは たびの ぼうけんしゃ レオ。」", "{n}「まほうは スペルを うちこめば だせる。\n せいかいなら ダメージは 2ばい いじょうだ!」"], ["{n}「コンボを つなぐと ダメージが ふえる。\n まちがえないのが ひけつさ。」"], ["{n}「メタルスライムは めったに でないが\n たおせば けいけんちが たっぷりだ。」"]] },
+  '0_mom': { g: 'food', chat: [["{n}「あら たびの かた? おなか すいてない?」", "{n}「えいごで ちゅうもん できると かっこいいわよ。」"], ["{n}「うちの パンは まちいちばん! …って えいごで なんて いうかしら?」"]] },
+  '1_lisa': { g: 'greet', chat: [["{n}「ようこそ ワードの むらへ!\n ここは ことばの さとよ。」"], ["{n}「ドラゴンじょうへは まだ とおいわ。\n もりと やみの だいちを こえるの。」"], ["{n}「ここの ひとたちは みんな えいごが じょうずなのよ。」"]] },
+  '1_ken': { chat: [["{n}「おれは ケン! むずかしい クイズも だせるぜ。」"], ["{n}「ぜんぶ わかったら おまえは ほんものだ!」"]] },
+  '1_elder': { chat: [["{n}「ふむ…いい かおつきに なったな。」", "{n}「ここから さきは やみの だいち。\n つよい まものが うじゃうじゃ おる。」"], ["{n}「ワードドラゴンは フレーズで せめてくる。\n ききとりを しっかり きたえるのじゃ。」"], ["{n}「ことばを おぼえる ことは ちからを つける こと。\n あせらず いくのじゃ。」"]] },
+  '1_guard': { g: 'dir', chat: [["{n}「この さきは やみの だいちだ。\n Lv8 くらい ないと きびしいぞ。」"], ["{n}「ドラゴンじょうは ここから みぎうえ だ。\n みちが つづいている。」"]] },
+  '1_trav': { g: 'travel', chat: [["{n}「やあ! ぼくは せかいを たびしてるんだ。」", "{n}「えいごは たびの ともだち さ。」"], ["{n}「いろんな くにの ひとと はなせるのは さいこうだよ!」"]] },
+  '1_farm': { g: 'weather', chat: [["{n}「こんにちは。きょうは いい てんきだね。」", "{n}「はたけの やさいも すくすく そだってるよ。」"], ["{n}「あめが ふると はたけは よろこぶが たびびとは たいへんだな。」"]] }
+};
+async function firstMeet(n) {
+  if (S.met[n.id]) return; S.met[n.id] = 1; S.exp += 5; sfx('coin');
+  await say('はじめて はなした! 5ポイントの けいけんち!', { wait: true }); await checkLevel(); save();
+}
+async function chat(n) {
+  const T = TALK[n.id]; if (!T || !T.chat) return; const i = S.ti[n.id] || 0; S.ti[n.id] = i + 1;
+  for (const line of T.chat[i % T.chat.length]) await say(line.replace(/\{n\}/g, n.n), { wait: true });
+}
+async function lesson(n, gk) {
+  const G0 = GROUPS[gk], wait = { wait: true }; const fresh = G0.list.filter(p => !S.phr[p.en]), p = pick(fresh.length ? fresh : G0.list);
+  await say(`${n.n}「${G0.intro}」`, wait); speak(p.en);
+  for (;;) {
+    await say(`“${p.en}”\n ── ${p.ja}\n(${p.use})`, { wait: false, delay: 100 });
+    const c = await choose(['もういちど きく', 'おぼえた!']); if (c === 1) break; speak(p.en);
+  }
+  const isNew = !S.phr[p.en]; S.phr[p.en] = 1; save();
+  await say(isNew ? `あたらしい フレーズを おぼえた!(おぼえた フレーズ: ${Object.keys(S.phr).length}こ)` : `${n.n}「そのちょうし! よく おぼえていたね。」`, wait);
+}
 async function talkNPC(n) {
   S.talks++; const wait = { wait: true };
+  await firstMeet(n);
   if (n.type === 'shop') {
     await say(`${n.n}「いらっしゃい! ここは どうぐやだ。\n やくそうは 1こ 12ゴールドだよ。」`, wait);
     for (;;) {
@@ -719,19 +786,51 @@ async function talkNPC(n) {
       S.gold -= 12; S.herbs++; sfx('coin'); await say(`やくそうを てにいれた!(もちもの ${S.herbs}こ / ${S.gold}G)`, wait); save();
     }
     await say(`${n.n}「そうですか。ざんねんです。\n またの おこしを おまちしています。」`, wait);
-  } else if (n.type === 'elder') { await elder(scene.idx); }
+  } else if (n.type === 'omikuji') { await omikuji(n); }
+  else if (n.type === 'elder') { await chat(n); await elder(scene.idx); }
   else if (n.type === 'quiz') {
-    await say(`${n.n}「ねえねえ、えいごクイズ しようよ!\n せいかいしたら 8ゴールド あげる!」`, wait);
+    await chat(n);
+    await say(`${n.n}「えいごクイズ だすよ! せいかいしたら 8ゴールド あげる!」`, wait);
     const def = { tiers: scene.idx === 0 ? [1] : [1, 2] }, q = makeMC(def), r = await askMC(q, 15), ok = r.idx === q.ans;
     await showResult(ok, q.w); rec(q.w.en, ok);
     if (ok) { S.gold += 8; sfx('coin'); await say(`${n.n}「やったね! すごいや!\n 8ゴールド あげる!」`, wait); } else await say(`${n.n}「ざんねん! また あそぼうね!」`, wait);
     save();
   } else {
-    const p = pick(POOL[4]);
-    await say(`${n.n}「やあ、たびの ひと。\n このまちでは こんな ことばを よく つかうんだ。」`, wait);
-    speak(p.en); await say(`“${p.en}”\n ── ${p.ja}`, wait);
-    await say(`${n.n}「つかって みてね。\n ことばの ちからが きみを たすけるよ。」`, wait);
+    await chat(n); const T = TALK[n.id]; if (T && T.g) await lesson(n, T.g);
   }
+}
+async function omikuji(n) {
+  const wait = { wait: true };
+  await say(`${n.n}「おみくじは どうじゃ? 1かい 5ゴールドじゃよ。\n えいごの ことわざが でるよ。」`, wait);
+  for (;;) {
+    const c = await choose(['ひく (5G)', 'やめる']); if (c === 1) break;
+    if (S.gold < 5) { await say(`${n.n}「おやおや、ゴールドが たりないねえ。」`, wait); break; }
+    S.gold -= 5; sfx('coin'); const r = Math.random(), p = pick(GROUPS.tips.list);
+    const res = r < .15 ? ['だいきち', 'EXP+15・10ゴールド', () => { S.exp += 15; S.gold += 10; }] : r < .45 ? ['ちゅうきち', 'EXP+10', () => { S.exp += 10; }] : r < .75 ? ['しょうきち', 'やくそう+1', () => { S.herbs++; }] : ['すえきち', 'EXP+5', () => { S.exp += 5; }];
+    speak(p.en); res[2](); await say(`おみくじを ひいた…\n【 ${res[0]} 】  ${res[1]}`, wait);
+    await say(`“${p.en}”\n ── ${p.ja}`, wait); S.phr[p.en] = 1; await checkLevel(); save();
+  }
+  await say(`${n.n}「また おいで。」`, wait);
+}
+async function houseVisit(who) {
+  const wait = { wait: true };
+  await say(`とびらを あけると ${who}が でむかえてくれた。\n${who}「いらっしゃい! ゆっくり していってね。」`, wait);
+  const w = pickWord(scene.idx === 0 ? [1, 2] : [2, 3]); if (!S.words[w.en]) S.words[w.en] = { o: 0, n: 0 }; speak(w.en);
+  await say(`${who}「きょうの ことばは “${w.en}” (${w.ja}) よ。\n いっしょに いってみて!」`, wait);
+  const r = Math.random();
+  if (r < .22) { S.herbs++; sfx('heal'); await say(`${who}「そうだ、これを もっていって。」\nやくそうを もらった!`, wait); }
+  else if (r < .5) { const g = rint(3, 10); S.gold += g; sfx('coin'); await say(`${who}「おこづかい あげる。がんばってね!」\n${g}ゴールドを もらった!`, wait); }
+  save();
+}
+async function schoolEvent() {
+  const wait = { wait: true };
+  await say('ことばの きょうしつ「ようこそ! ここでは えいごの レッスンが うけられるよ。\n 5もん ぜんぶ せいかいすると ボーナスだ!」', wait);
+  const c = await choose(['レッスンを うける (5もん)', 'やめる']);
+  if (c === 1) { await say('ことばの きょうしつ「また いつでも おいで。」', wait); return; }
+  let ok = 0; const def = { tiers: scene.idx === 0 ? [1, 2] : [2, 3] };
+  for (let i = 0; i < 5; i++) { const q = makeMC(def), r = await askMC(q, 15), good = r.idx === q.ans; await showResult(good, q.w); rec(q.w.en, good); if (good) ok++; }
+  const exp = ok * 6 + (ok === 5 ? 10 : 0); S.exp += exp; sfx(ok >= 3 ? 'win' : 'ng');
+  await say(`けっか: ${ok} / 5 もん せいかい!\n${exp}ポイントの けいけんち!`, wait); await checkLevel(); save();
 }
 async function innEvent() {
   await say('やどやの しゅじん「ようこそ! ひとばん 5ゴールドです。\n おとまりに なりますか?」', { wait: true });
@@ -802,7 +901,7 @@ async function arrive() {
   if (scene.kind === 'town') {
     const ch = scene.map[P.y][P.x];
     if (ch === 'X') { await leaveTown(); return; }
-    if (ch === 'D') { const kind = scene.doors[P.x + ',' + P.y]; busy = true; setUI('battle'); if (kind === 'inn') await innEvent(); else await say('とびらには かぎが かかっている。\n「ちからを つけてから また きてね」と かいてある。', { wait: true }); setUI('field'); busy = false; }
+    if (ch === 'D') { const d = scene.doors[P.x + ',' + P.y]; busy = true; setUI('battle'); if (d.kind === 'inn') await innEvent(); else if (d.kind === 'school') await schoolEvent(); else await houseVisit(d.who); setUI('field'); busy = false; }
     return;
   }
   S.x = P.x; S.y = P.y;
@@ -859,7 +958,7 @@ function drawStatus(x, y) {
   text(`HP ${S.hp}/${maxHpOf(S.lv)}`, x + 6, y + 25, 9, S.hp < maxHpOf(S.lv) * .3 ? '#ff9090' : '#fff'); text(`MP ${S.mp}/${maxMpOf(S.lv)}`, x + 6, y + 35, 9, '#90d0ff');
 }
 function drawChar(name, dir, px, py, camX, camY, moving, t, bobPhase) {
-  const f = charFrames(name)[dir], fi = moving ? (t < .5 ? 1 : 2) : 0, x = Math.round(px - camX) - 1, y = Math.round(py - camY) - 9;
+  const f = charFrames(name)[dir], fi = moving ? (t < .5 ? 1 : 2) : 0, x = Math.round(px - camX) - 1, y = Math.round(py - camY) + 15 - f[fi].height;
   ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(x + 9, y + 22, 6, 2.2, 0, 0, 7); ctx.fill();
   ctx.drawImage(f[fi], x, y - (moving && t > .25 && t < .75 ? 1 : 0));
 }
@@ -894,7 +993,7 @@ function drawBattle() {
   ctx.drawImage(buildBG(z), 0, 0);
   // きらめき
   const tw = Math.floor(time * 2) % 3; ctx.fillStyle = '#fff'; const sx = z >= 2 ? 200 : 178, sy = 54; ctx.fillRect(sx, sy - 5 - tw, 1, 11 + tw * 2); ctx.fillRect(sx - 5 - tw, sy, 11 + tw * 2, 1); ctx.fillRect(sx - 1, sy - 1, 3, 3);
-  const spr = enemyImg(e.def), sc = e.def.boss ? 1.7 : 2, sw = spr.width * sc, sh = spr.height * sc, cx = W / 2, cy = e.def.boss ? 84 : 96;
+  const spr = enemyImg(e.def), sc = e.def.boss ? 1.55 : 2, sw = spr.width * sc, sh = spr.height * sc, cx = W / 2, cy = e.def.boss ? 88 : 96;
   ctx.globalAlpha = e.alpha; ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.beginPath(); ctx.ellipse(cx, cy + sh / 2 + 3, sw / 2.6, 6, 0, 0, 7); ctx.fill();
   const flick = B.fx && B.fx.t === 'slash' && B.fx.p > .5 && Math.floor(B.fx.p * 20) % 2;
   ctx.drawImage(flick ? enemyImg(e.def, true) : spr, Math.round(cx - sw / 2 + e.ox), Math.round(cy - sh / 2 + e.bob + e.oy), sw, sh); ctx.globalAlpha = 1;
@@ -957,7 +1056,8 @@ $('#bBook').onclick = async () => {
   const rows = all.filter(w => S.words[w.en]).sort((a, b) => ((S.words[b.en].n - S.words[b.en].o) - (S.words[a.en].n - S.words[a.en].o)));
   const weak = rows.filter(w => S.words[w.en].n > S.words[w.en].o);
   const tr = w => `<tr><td>${esc(w.en)}</td><td>${esc(w.ja)}</td><td>⭕${S.words[w.en].o} ❌${S.words[w.en].n}</td></tr>`;
-  await modal(`<h3>ことばノート</h3>であった ことば: ${rows.length} / ${all.length}<br>${weak.length ? `<div class="tag" style="margin-top:6px">にがて</div> もっと でやすく なります<table>${weak.slice(0, 12).map(tr).join('')}</table>` : ''}<div class="tag" style="margin-top:8px">ぜんぶ</div>${rows.length ? `<table>${rows.slice(0, 80).map(tr).join('')}</table>` : '<br>まだ ありません。てきと たたかおう!'}`);
+  const phr = Object.keys(S.phr).map(en => `<tr><td>${esc(en)}</td><td>${esc(PHRASE_JA[en] || '')}</td></tr>`).join('');
+  await modal(`<h3>ことばノート</h3>であった ことば: ${rows.length} / ${all.length}　おぼえた フレーズ: ${Object.keys(S.phr).length}<br>${phr ? `<div class="tag" style="margin-top:6px">フレーズ</div><table>${phr}</table>` : ''}${weak.length ? `<div class="tag" style="margin-top:6px">にがて</div> もっと でやすく なります<table>${weak.slice(0, 12).map(tr).join('')}</table>` : ''}<div class="tag" style="margin-top:8px">ぜんぶ</div>${rows.length ? `<table>${rows.slice(0, 80).map(tr).join('')}</table>` : '<br>まだ ありません。てきと たたかおう!'}`);
   busy = false;
 };
 function titleMenu() {
