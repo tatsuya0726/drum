@@ -21,15 +21,15 @@ export function sanitizeSave(raw) {
     if(!Number.isInteger(b.round)||b.round<1||b.round>10000||!Array.isArray(b.reserve)||!Array.isArray(b.plans)||!b.supplies||!Array.isArray(b.log)||!Array.isArray(b.events))throw Error('Invalid battle state');
     const encounter=ENCOUNTERS.find(e=>e.id===b.encounterId);
     if(b.enemies.length!==encounter.enemies.length||new Set([...b.party,...b.reserve].map(u=>u.id)).size!==b.party.length+b.reserve.length||!b.party.some(u=>u.id==='hero'))throw Error('Invalid combat roster');
-    const state=u=>{if(!u.status||Array.isArray(u.status))throw Error('Invalid status');return Object.fromEntries(Object.entries(u.status).filter(([key])=>['poison','exposed','marked','silence','stun','chill','inspired','chargeBroken','chargeWeak'].includes(key)).map(([key,n])=>[key,Math.min(3,number(n))]));};
+    const state=u=>{if(!u.status||Array.isArray(u.status))throw Error('Invalid status');return Object.fromEntries(Object.entries(u.status).filter(([key])=>['poison','exposed','marked','silence','stun','chill','inspired','chargeBroken','chargeWeak'].includes(key)).map(([key,n])=>[key,['poison','exposed'].includes(key)?Math.min(3,number(n)):Number.isFinite(n)?(n>=1?1:n>=.5?.5:0):0]));};
     for(const list of [b.party,b.reserve])for(let i=0;i<list.length;i++){
       const u=list[i];if(!s.roster.includes(u.id)||!HEROES[u.job||u.id]||!Number.isFinite(u.hp)||!Number.isFinite(u.mp))throw Error('Invalid hero');
       const canonical=makeHero(u.id,s.level,u.job||u.id);
-      list[i]={...canonical,hp:Math.min(canonical.maxHp,number(u.hp)),mp:Math.min(canonical.maxMp,number(u.mp)),status:state(u),shield:Math.min(72,number(u.shield))};
+      list[i]={...canonical,hp:Math.min(canonical.maxHp,number(u.hp)),mp:Math.min(canonical.maxMp,number(u.mp)),status:state(u),shield:Math.min(72,number(u.shield)),...(Number.isFinite(u.guardReduction)&&u.guardReduction>0?{guardReduction:Math.min(.5,Math.max(0,u.guardReduction))}:{})};
     }
     b.enemies=b.enemies.map((u,i)=>{
       if(u.key!==encounter.enemies[i]||u.id!==`e${i}`||!INTENTS[u.intent?.type]||!Number.isInteger(u.cycle))throw Error('Invalid enemy');
-      const d=ENEMIES[u.key];return {...d,id:u.id,key:u.key,maxHp:d.hp,hp:Math.min(d.hp,number(u.hp)),mp:0,status:state(u),shield:Math.min(72,number(u.shield)),cycle:u.cycle,protecting:b.enemies.some(e=>e.id===u.protecting)?u.protecting:null,intent:{type:u.intent.type,target:[...b.party,...b.enemies].some(e=>e.id===u.intent.target)?u.intent.target:b.party[0].id}};
+      const d=ENEMIES[u.key];return {...d,id:u.id,key:u.key,maxHp:d.hp,hp:Math.min(d.hp,number(u.hp)),mp:0,status:state(u),shield:Math.min(72,number(u.shield)),...(Number.isFinite(u.guardReduction)&&u.guardReduction>0?{guardReduction:Math.min(.5,Math.max(0,u.guardReduction))}:{}),cycle:u.cycle,protecting:b.enemies.some(e=>e.id===u.protecting)?u.protecting:null,intent:{type:u.intent.type,target:[...b.party,...b.enemies].some(e=>e.id===u.intent.target)?u.intent.target:b.party[0].id}};
     });
     if(b.plans.some(p=>!b.party.some(u=>u.id===p.actorId)||!(SKILLS[p.skillId]||p.skillId==='swap')||![...b.party,...b.reserve,...b.enemies].some(u=>u.id===p.targetId))||new Set(b.plans.map(p=>p.actorId)).size!==b.plans.length)throw Error('Invalid plan');
     b.plans=b.plans.map(({actorId,skillId,targetId})=>({actorId,skillId,targetId}));

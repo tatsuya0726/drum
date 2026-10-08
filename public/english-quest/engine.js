@@ -20,7 +20,7 @@ export function targetsFor(b, actorId, skillId) {
 }
 export function availableSkills(actor) {return ['strike',...HEROES[actor.job||actor.id].skills.filter(x=>x!=='strike'),'guard','herb','antidote','phoenix'];}
 function event(b, actor, target, text, kind, amount=0) {
-  b.events.push({actor:actor?.id,target:target?.id,text,kind,amount,hp:target?.hp,shield:target?.shield});
+  b.events.push({actor:actor?.id,target:target?.id,text,kind,amount,hp:target?.hp,shield:target?.shield,guardReduction:target?.guardReduction||0});
   b.log.push(text); b.log=b.log.slice(-40);
 }
 export function planEnemies(b) {
@@ -42,10 +42,11 @@ export function intentText(b,e) {
   const d=INTENTS[e.intent?.type]; if(!d)return '行動済み';
   const t=[...b.party,...b.enemies].find(u=>u.id===e.intent.target);
   if(e.intent.type==='blast'&&e.status.chargeBroken)return '◇ 詠唱中断済み · この大技は不発';
-  const value=e.intent.type==='heal'?' +30':e.intent.type==='revive'?' HP35%':e.intent.type==='protect'?' 軽減40%':e.intent.type==='charge'?' 次回大技':` ${e.intent.type==='blast'&&e.status.chargeWeak?Math.round(e.atk*.5):e.atk}${e.intent.type==='blast'&&e.status.chargeWeak?'（詠唱妨害で半減）':''}`;
+  const value=e.intent.type==='heal'?' +30':e.intent.type==='revive'?' HP35%':e.intent.type==='protect'?' 軽減40%':e.intent.type==='charge'?` 次回全体 ${Math.round(e.atk*(e.blastPower||1))}`:` ${e.intent.type==='blast'?Math.round(e.atk*(e.blastPower||1)*(1-.5*(e.status.chargeWeak||0))):e.atk}${e.intent.type==='blast'&&e.status.chargeWeak?'（詠唱妨害で軽減）':''}`;
   return `${d.icon} ${d.en} · ${d.ja}${value}${['charge','blast'].includes(e.intent.type)?'':t?' → '+t.name:''}`;
 }
 function damage(b,actor,target,amount,kind,bypass=false) {
+  if(actor!==target)amount *= 1-(target.guardReduction||0);
   const absorbed=bypass?0:Math.min(target.shield||0,amount);
   target.shield=Math.max(0,(target.shield||0)-absorbed);
   const hit=Math.max(0,Math.round(amount-absorbed));target.hp=Math.max(0,target.hp-hit);
@@ -73,30 +74,32 @@ export function useSkill(b,actorId,skillId,targetId,correct=true) {
   const target=candidates.find(x=>x.id===targetId);
   if(!target)throw Error('Choose a living / valid target again');
   b.events=[];actor.mp-=skill.cost;b.acted.push(actorId);if(skill.supply)b.supplies[skill.supply]--;
+  const potency=correct?1:.5;
   const teamSkill=['allies','enemies'].includes(skill.target);
   let targets=teamSkill?candidates:[target];
   if(['enemy','enemies'].includes(skill.target)&&!teamSkill&&!skill.bypass){
-    const protector=b.enemies.find(e=>alive(e)&&e.protecting===target.id&&!e.status.stun&&!e.status.silence);
-    if(protector)event(b,protector,target,`${protector.name}が${target.name}を護衛。ダメージ40%軽減。`,'guard');
+    const protector=b.enemies.find(e=>alive(e)&&e.protecting===target.id&&e.status.stun!==1&&e.status.silence!==1);
+    if(protector)event(b,protector,target,`${protector.name}が${target.name}を護衛。ダメージ${40*(1-Math.max(protector.status.stun||0,protector.status.silence||0))}%軽減。`,'guard');
   }
   if(skill.power)targets.forEach(t=>{
     const exposed=t.status.exposed>0,marked=t.status.marked>0;
     const weak=t.weak===(skill.element||'physical') || (skillId==='frost'&&t.weak==='ice');
-    const protectedTarget=!skill.bypass&&b.enemies.some(e=>alive(e)&&e.protecting===t.id&&!e.status.stun&&!e.status.silence);
-    let amount=actor.atk*skill.power*(weak?1.3:1)*(exposed?1.35:1)*(marked?1.5:1)*(actor.status.inspired?1.4:1)*(protectedTarget?.6:1)*(actor.boost?1.25:1);
-    if(skillId==='ignite'&&marked)amount+=12;
+    const protector=!skill.bypass&&b.enemies.find(e=>alive(e)&&e.protecting===t.id);
+    const protection=protector ? .4*(1-Math.max(protector.status.stun||0,protector.status.silence||0)):0;
+    let amount=actor.atk*skill.power*(weak?1.3:1)*(exposed?1.35:1)*(1+.5*(t.status.marked||0))*(1+.4*(actor.status.inspired||0))*(1-protection);
+    if(skillId==='ignite'&&marked)amount+=12*t.status.marked;
     if(skillId==='sever'&&exposed)amount+=10;
-    damage(b,actor,t,Math.round(amount),skill.kind,skill.bypass);
+    damage(b,actor,t,Math.round(amount*potency),skill.kind,skill.bypass);
     if(exposed)t.status.exposed--;if(marked)t.status.marked=0;
-    if(skill.effect&&alive(t))t.status[skill.effect]=skill.effect==='exposed'?2:1;
+    if(skill.effect&&alive(t))t.status[skill.effect]=skill.effect==='exposed'?(correct?2:1):potency;
   });
   if(skill.power)actor.status.inspired=0;
   {
-    if(skillId==='mend'||skillId==='herb')heal(b,actor,target,Math.round((skillId==='mend'?42:35)*(actor.boost?1.25:1)));
-    if(skillId==='revive'||skillId==='phoenix')heal(b,actor,target,Math.ceil(target.maxHp*.45),true);
-    if(skillId==='cleanse'||skillId==='antidote'){delete target.status.poison;heal(b,actor,target,18);}
-    if(skillId==='guard'||skillId==='shelter')targets.forEach(t=>{t.shield+=18;event(b,actor,t,`${t.name}に盾 +18`,'guard');});
-    if(skillId==='inspire')targets.forEach(t=>{t.status.inspired=1;event(b,actor,t,`${t.name}の次の一撃を鼓舞。`,'song');});
+    if(skillId==='mend'||skillId==='herb')heal(b,actor,target,Math.round((skillId==='mend'?42:35)*potency));
+    if(skillId==='revive'||skillId==='phoenix')heal(b,actor,target,Math.ceil(target.maxHp*.45*potency),true);
+    if(skillId==='cleanse'||skillId==='antidote'){if(correct)delete target.status.poison;else if(target.status.poison)target.status.poison=Math.floor(target.status.poison/2);heal(b,actor,target,Math.round((skillId==='antidote'?15:18)*potency));}
+    if(skillId==='guard'||skillId==='shelter')targets.forEach(t=>{t.guardReduction=Math.max(t.guardReduction||0,.5*potency);event(b,actor,t,`${t.name}：次の敵ターンのダメージを${50*potency}%軽減`,'guard');});
+    if(skillId==='inspire')targets.forEach(t=>{t.status.inspired=potency;event(b,actor,t,`${t.name}の次の一撃を鼓舞。`,'song');});
   }
   if(skillId==='strike'||skillId==='guard')actor.mp=Math.min(actor.maxMp,actor.mp+(skillId==='guard'?3:2));
   if(actor.status.poison&&alive(actor))damage(b,actor,actor,Math.ceil(actor.maxHp*.05),'poison',true);
@@ -112,22 +115,22 @@ export function continueBattle(b) {
   b.enemies.filter(alive).forEach(e=>{
     if(!b.party.some(alive))return;
     const type=e.intent.type;
-    if(type==='charge'&&(e.status.silence||(e.status.stun&&!e.boss)))e.status.chargeBroken=1;
-    if(type==='charge'&&e.status.stun&&e.boss)e.status.chargeWeak=1;
+    if(type==='charge'&&(e.status.silence===1||(e.status.stun===1&&!e.boss)))e.status.chargeBroken=1;
+    if(type==='charge'&&!e.status.chargeBroken&&(e.status.stun||e.status.silence))e.status.chargeWeak=e.status.silence*2||e.status.stun*(e.boss?1:2);
     if(type==='blast'&&e.status.chargeBroken){event(b,e,e,`${e.name}：詠唱が崩れ、大技は不発。`,'stun');delete e.status.chargeBroken;delete e.status.chargeWeak;delete e.status.stun;delete e.status.silence;delete e.status.chill;return;}
-    if(e.status.stun&&!e.boss){event(b,e,e,`${e.name}：行動を中断された。`,'stun');delete e.status.stun;delete e.status.silence;delete e.status.chill;if(type==='blast')delete e.status.chargeWeak;e.protecting=null;return;}
-    if(e.status.silence&&['heal','revive','charge','blast'].includes(type)){
+    if(e.status.stun===1&&!e.boss){event(b,e,e,`${e.name}：行動を中断された。`,'stun');delete e.status.stun;delete e.status.silence;delete e.status.chill;if(type==='blast')delete e.status.chargeWeak;e.protecting=null;return;}
+    if(e.status.silence===1&&['heal','revive','charge','blast'].includes(type)){
       event(b,e,e,`${e.name}：沈黙で${INTENTS[type].ja}を封じた。`,'silence');e.status={...e.status,silence:0,stun:0,chill:0};if(type==='blast')delete e.status.chargeWeak;return;
     }
-    const weakened=e.status.chill||e.status.stun||(type==='blast'&&e.status.chargeWeak);
-    const amount=Math.round(e.atk*(weakened?.5:1));
+    const reduction=Math.max(.5*(e.status.chill||0),(e.boss ? .5 : 1)*(e.status.stun||0),['heal','revive','blast'].includes(type)?(e.status.silence||0):0,type==='blast'?.5*(e.status.chargeWeak||0):0);
+    const amount=Math.round(e.atk*(type==='blast'?(e.blastPower||1):1)*(1-reduction));
     const target=b.party.find(u=>u.id===e.intent.target&&alive(u))||b.party.find(alive);
     if(type==='heal'){
       const t=b.enemies.find(u=>u.id===e.intent.target&&alive(u))||b.enemies.filter(alive).sort((a,c)=>a.hp-c.hp)[0];
-      if(t)heal(b,e,t,30);
+      if(t)heal(b,e,t,Math.round(30*(1-reduction)));
     }else if(type==='revive'){
       const t=b.enemies.find(u=>u.id===e.intent.target&&!alive(u))||b.enemies.find(u=>!alive(u));
-      if(t)heal(b,e,t,Math.ceil(t.maxHp*.35),true);else event(b,e,e,`${e.name}：蘇生対象がいない。`,'miss');
+      if(t)heal(b,e,t,Math.ceil(t.maxHp*.35*(1-reduction)),true);else event(b,e,e,`${e.name}：蘇生対象がいない。`,'miss');
     }else if(type==='charge')event(b,e,e,`${e.name}は力を蓄えている。次の大技に備えよう。`,'charge');
     else if(type==='protect')event(b,e,e,`${e.name}は護衛の構えを維持した。`,'guard');
     else if(type==='blast')b.party.filter(alive).forEach(t=>damage(b,e,t,amount,'blast'));
@@ -138,7 +141,7 @@ export function continueBattle(b) {
     }
     delete e.status.stun;delete e.status.chill;delete e.status.silence;if(type==='blast')delete e.status.chargeWeak;e.protecting=null;
   });
-  b.party.forEach(u=>{u.shield=0;u.mp=Math.min(u.maxMp,u.mp+2);if(u.status.poison)u.status.poison--;});
+  b.party.forEach(u=>{u.shield=0;delete u.guardReduction;u.mp=Math.min(u.maxMp,u.mp+2);if(u.status.poison)u.status.poison--;});
   b.result=outcome(b);b.phase=b.result?'result':'command';b.round++;b.acted=[];
   if(!b.result)planEnemies(b);
   return clone(b.events);
@@ -159,7 +162,7 @@ export function queueAction(b,actorId,skillId,targetId) {
   if(i<0)b.plans.push(plan);else b.plans[i]=plan;
   return plan;
 }
-export function resolveRound(b, correct, bonusActorId) {
+export function resolveRound(b, correct) {
   if(b.phase!=='command'||b.result||b.party.filter(alive).some(u=>!b.plans.some(p=>p.actorId===u.id)))throw Error('全員の行動を決めてください。');
   const events=[];
   for(const p of b.plans){
@@ -173,8 +176,7 @@ export function resolveRound(b, correct, bonusActorId) {
     const choices=targetsFor(b,actor.id,p.skillId);
     const target=choices.find(t=>t.id===p.targetId)||([...choices].sort((a,c)=>a.hp-c.hp)[0]);
     if(!target){b.acted.push(actor.id);b.events=[];event(b,actor,actor,`${actor.name}：有効な対象なし。資源は消費しない。`,'miss');events.push(...b.events);continue;}
-    actor.boost=correct&&actor.id===bonusActorId;
-    events.push(...useSkill(b,actor.id,p.skillId,target.id,true));delete actor.boost;
+    events.push(...useSkill(b,actor.id,p.skillId,target.id,correct));
     b.phase='command';
   }
   b.phase='feedback';b.result=outcome(b);b.plans=[];b.acted=b.party.map(u=>u.id);
