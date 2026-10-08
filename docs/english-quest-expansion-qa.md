@@ -1,18 +1,18 @@
 # English Quest expansion review candidate — 2026-10-08
 
-Branch: `codex/english-quest-collection-expansion`. Base/latest remote main checked during final QA: `ce293a08faf08ffaa0d2a33d881441a9ff249219`. No main push or deployment. Changes are confined to English Quest, its QA scripts, tests and this report; drum and other apps are untouched.
+Branch: `codex/english-quest-collection-expansion`. Base: `ce293a08faf08ffaa0d2a33d881441a9ff249219`. Changes are confined to English Quest, its QA scripts, tests and this report; drum and other apps are untouched. Publication was explicitly authorized by the user on 2026-10-08 at 02:41 UTC after the consolidated confirmation for the remaining image and both games.
 
-## Content and remaining release gate
+## Content and final artwork
 
 - Existing seven human characters and seven encounters remain. Added 36 collectible allies, 40 enemy archetypes, 12 regions / 60 explicit dungeons, and 600 reviewed four-choice English questions.
-- Current imported art is 35 individual new ally portraits plus four boss images. `coal_apprentice` is the only missing new ally image. The parent's exact manifest registration retry is awaiting authorization; it has not been bypassed. **Do not publish while this gate remains.**
+- Final imported art is 36 individual new ally portraits plus four boss images. The authorized `coal_apprentice` registration arrived in content commit `45525a48d661135e1e98a9c3b28c09a10b7faff4`. All forty references and WebP files are checked by the final asset coverage tests.
 - Forty enemy archetypes intentionally share suitable dark-fantasy family artwork through `art-map.js`; they are not forty unique illustrations. Twelve regions share three established backgrounds. Existing seven human portraits remain.
 - Source design SHA256: `f0a1e3a9ae54e7a8edb9b430a1500cb1e25902d3a6a1de46c1328568ce19c6a8`.
 - Reviewed question JSON SHA256: `d928b903a7c6830570664c8931c02ace283deb90f0fa7c3156c86fbd50a93442`.
 
 ## Automated verification
 
-`npm test`: 302 passing, one pre-existing skipped test, eight files. `npm run build` passed after removing both temporary QA pages; neither exists in dist. The pre-existing drum rendering chunk-size warning remains.
+Final-image validation: **304 passing**, one pre-existing skipped test, nine files. The final-art coverage tests check all 36 new allies and four bosses; the image and manifest Git blob hashes match the content handoff. `npm run build` passed after removing both temporary QA pages; neither exists in dist. The pre-existing drum rendering chunk-size warning remains. CI/Pages and live publication results are reported with the deployed commit.
 
 Coverage includes all 36 signatures at both correct and incorrect potency, marker consumption, status strength refresh, duration boundaries, DOT snapshots, shields, silence, cooldown reduction and half-credit accumulation; waves, retargeting, victory/defeat, reserve swaps, old-save backup and migration, malformed state, failed persistence, cross-tab locks, recruitment guarantees, ten sequential draws in one transaction, duplicate conversion, replay receipts and one-time rewards. Existing 840-run legacy balance contract remains unchanged.
 
@@ -46,4 +46,4 @@ Chrome decoded all three stereo tracks at 48 kHz: town 30.743229 s; battle 152 s
 
 ## Release handling
 
-Review the branch diff, complete the one outstanding ally art registration, confirm subjective audio mix if desired, and authorize publishing separately. No changes have been made to production saves or main. Existing save keys are preserved; v1 is backed up verbatim before upgrading to v2, and malformed saves or failed writes do not overwrite the previous valid state.
+The final image registration and publishing were explicitly approved. Recheck remote main, preserve any parallel changes, run tests/build on the resulting tree, and verify CI/Pages for the exact published commit. Existing save keys are preserved; v1 is backed up verbatim before upgrading to v2, and malformed saves or failed writes do not overwrite the previous valid state. Physical-phone sound quality remains untested, as disclosed before approval.
