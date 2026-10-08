@@ -35,7 +35,8 @@
     "rain_scribe": "expansion/rain_scribe.webp",
     "thorn_gryph": "expansion/thorn_gryph.webp",
     "terrace_turtle": "expansion/terrace_turtle.webp",
-    "tide_clock": "expansion/tide_clock.webp"
+    "tide_clock": "expansion/tide_clock.webp",
+    "coal_apprentice": "expansion/coal_apprentice.webp"
   },
   "enemies": {
     "eclipse_wyrm": "expansion/eclipse_wyrm.webp",
