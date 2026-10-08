@@ -25,7 +25,17 @@
     "bell_robot": "expansion/bell_robot.webp",
     "steam_otter": "expansion/steam_otter.webp",
     "storm_kite": "expansion/storm_kite.webp",
-    "moss_giant": "expansion/moss_giant.webp"
+    "moss_giant": "expansion/moss_giant.webp",
+    "dawn_baker": "expansion/dawn_baker.webp",
+    "spark_ant": "expansion/spark_ant.webp",
+    "seed_drake": "expansion/seed_drake.webp",
+    "clay_smith": "expansion/clay_smith.webp",
+    "star_snail": "expansion/star_snail.webp",
+    "shade_hare": "expansion/shade_hare.webp",
+    "rain_scribe": "expansion/rain_scribe.webp",
+    "thorn_gryph": "expansion/thorn_gryph.webp",
+    "terrace_turtle": "expansion/terrace_turtle.webp",
+    "tide_clock": "expansion/tide_clock.webp"
   },
   "enemies": {
     "eclipse_wyrm": "expansion/eclipse_wyrm.webp",
