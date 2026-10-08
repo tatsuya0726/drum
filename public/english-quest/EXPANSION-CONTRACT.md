@@ -10,7 +10,7 @@ Target includes existing content: 36 allies = existing hero plus six starters pl
 
 ## Allies: allies.json array
 
-Reserved new IDs a_001 through a_029. Keep existing hero,guardian,mage,cleric,ranger,duelist,bard IDs. Existing six basic jobs remain freely recruitable in the first town.
+Reserved new IDs a_001 through a_029. Keep existing hero,guardian,mage,cleric,ranger,duelist,bard IDs. Existing six basic jobs remain freely recruitable in the first town. Art reservations in order: a_001 lantern moth spirit; a_002 moss turtle guardian; a_003 porcelain fox mage; a_004 clockwork owl; a_005 crystal jellyfish; a_006 ember lion cub (nonhuman beast); a_007 thorn dryad; a_008 armored beetle knight; a_009 cloud whale; a_010 skeletal raven oracle; a_011 mushroom alchemist; a_012 star serpent.
 
 Each record: {id,name,title,job,age,species,role,hp,mp,atk,color,sigil,quote,story,skills,synergy,rarity,element,artId}.
 
@@ -38,9 +38,9 @@ dungeons.json: [{id:'r01_01',regionId:'r01',stage:1,chapter:'01-1',name,area:'r0
 
 ## Questions: questions.json array
 
-Record: {id:'q_0001',word,meaning,core,example,translation,prompt,choices:['correct','wrong','wrong'],answer:0,skillTags:['strike'],topic:'travel',difficulty:1,review:{status:'approved',reviewer:'question-review',notes:'...'}}.
+Parent-native accepted record: {id:'q_0001',level:1,category:'travel',prompt,options:['correct','wrong','wrong','wrong'],answerIndex:0,explanation,englishText}. Optional skillTags/word/translation are welcome but not required. A separate approvedIds array plus review evidence identifies the actually reviewed subset.
 
-Stable IDs q_0001 onward. Three distinct choices; answer index0–2 before runtime shuffling. Japanese prompt/explanation and natural English example; explain the exact sense/use, not merely repeat a dictionary gloss. skillTags use lesson keys above; broader topic tags welcome but each question needs a contextual connection. Difficulty1–5. Review approval is evidence of actual independent review, never defaulted by a loader. Provide rejected/needs-revision items separately. Pure punctuation, choice shuffles and noun-substitution clones do not satisfy the600 target. Automated checks detect exact duplicates and suspicious skeleton reuse for human review.
+Stable IDs q_0001 onward. Four distinct choices; answerIndex0–3 before runtime shuffling. Japanese prompt/explanation and natural English text; explain the exact sense/use, not merely repeat a dictionary gloss. Level1–6. Optional skillTags use lesson keys above. Review approval is evidence of actual independent review, never defaulted by a loader. Provide rejected/needs-revision items separately. Pure punctuation, choice shuffles and noun-substitution clones do not satisfy the600 target. Exact prompt+correct-answer duplicates are rejected; content review must additionally check semantic duplicates. Long prompt/options/explanation are flagged for mobile review, not silently truncated.
 
 ## Art slots
 
@@ -59,3 +59,24 @@ Duplicate yields archive shards R1/SR5/SSR20 and does not directly increase comb
 ## Save compatibility
 
 Keep english_quest_rebirth_v1 storage key; schema version2 accepts version1 and makes an exact one-time backup before writing upgrade. Preserve original legacy key, roster, party, completed IDs, words, settings and pending battle. New economy and per-question history live in separate versioned fields. No automatic retroactive repeated rewards. Existing ownership is never rerolled. Counts shown in UI derive from validated/approved actual content, not target constants.
+# Integration checkpoint — design pack received 2026-10-08
+
+The sections below describe the initial engine-facing proposal, not the final
+design pack. The newly delivered Library design supersedes the proposed rarity
+economy: four rarity tiers (45/35/16/4%), tier 3+ by draw 10, tier 4 by draw 30,
+one ticket per three clears, equal duplicate currency and a choice every 40 draws.
+`collection.js` currently tests the earlier three-tier proposal and is not wired
+to the public UI. It must be adapted before enabling recruitment.
+
+Library source: `libfile_6d5ba2cf655081918a345d2a18c02ba5`, version 0,
+`english_quest_collection_expansion.json` (108474 bytes). Formal local transfer
+failed with HTTP 403. Library text reading works; whole-file local bytes are
+not yet available. Parent must arrange an authorized alternate transfer.
+
+The source uses semantic unit IDs (for example `ember_mole`), numeric rarity,
+an ordered `skill.effects` array and cooldowns. Its `apply_status`, shield,
+conditional consumption, DOT, cleanse/dispel and cooldown effects need a
+validated adapter and composable engine support. Preserve the original seven
+human IDs and existing battle/save semantics. Do not silently substitute the
+provisional `a_001` IDs or claim this checkpoint implements the complete pack.
+

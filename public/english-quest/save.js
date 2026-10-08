@@ -1,13 +1,18 @@
 import {HEROES, ENCOUNTERS, ENEMIES, SKILLS, INTENTS} from './data.js';
 import {makeHero} from './engine.js';
+import {newCollection,validateCollection,grantDungeonTickets} from './collection.js';
 export const SAVE_KEY='english_quest_rebirth_v1';
 export const LEGACY_KEY='english_quest_v2';
 export const BACKUP_KEY='english_quest_v2_backup_before_rebirth';
-export const newSave=()=>({version:1,level:1,heroJob:'hero',gold:20,wins:0,ok:0,ng:0,words:{},phr:{},roster:['hero'],party:['hero'],completed:[],battle:null,settings:{sound:false,motion:'system'},legacy:null});
+export const COLLECTION_BACKUP_KEY=SAVE_KEY+'_before_collection_v2';
+export const newSave=()=>({version:2,revision:0,collection:newCollection(),questionRecords:{},level:1,heroJob:'hero',gold:20,wins:0,ok:0,ng:0,words:{},phr:{},roster:['hero'],party:['hero'],completed:[],battle:null,settings:{sound:false,motion:'system'},legacy:null});
 const number=(x,fall=0)=>Number.isFinite(x)?Math.max(0,Math.floor(x)):fall;
 export function sanitizeSave(raw) {
-  if(!raw||raw.version!==1||!Array.isArray(raw.party)||!raw.words||typeof raw.words!=='object'||Array.isArray(raw.words))throw Error('Invalid save');
+  if(!raw||![1,2].includes(raw.version)||!Array.isArray(raw.party)||!raw.words||typeof raw.words!=='object'||Array.isArray(raw.words))throw Error('Invalid save');
   const s={...newSave(),...raw};
+  s.version=2;s.revision=Number.isSafeInteger(raw.revision)&&raw.revision>=0?raw.revision:0;
+  s.collection=validateCollection(raw.version===1?null:raw.collection);
+  s.questionRecords=Object.fromEntries(Object.entries(raw.questionRecords||{}).filter(([id,v])=>/^q_[a-z0-9_-]+$/i.test(id)&&v&&typeof v==='object').map(([id,v])=>[id,{correct:number(v.correct),wrong:number(v.wrong)}]));
   s.roster=[...new Set(['hero',...(Array.isArray(raw.roster)?raw.roster:[])])].filter(x=>HEROES[x]);
   s.party=[...new Set(['hero',...raw.party])].filter(x=>s.roster.includes(x)).slice(0,4);
   s.completed=(Array.isArray(raw.completed)?raw.completed:[]).filter(x=>ENCOUNTERS.some(e=>e.id===x));
@@ -42,7 +47,7 @@ export function sanitizeSave(raw) {
 export function loadSave(storage) {
   try {
     const current=storage.getItem(SAVE_KEY);
-    if(current)return {save:sanitizeSave(JSON.parse(current)),notice:''};
+    if(current){const raw=JSON.parse(current),upgraded=sanitizeSave(raw);if(raw.version===1){if(!storage.getItem(COLLECTION_BACKUP_KEY))storage.setItem(COLLECTION_BACKUP_KEY,current);storage.setItem(SAVE_KEY,JSON.stringify(upgraded));}return {save:upgraded,notice:raw.version===1?'冒険の書を拡張しました。移行前の記録も保存しています。':''};}
     const old=storage.getItem(LEGACY_KEY);
     if(!old)return {save:newSave(),notice:''};
     const legacy=JSON.parse(old);
@@ -55,7 +60,7 @@ export function loadSave(storage) {
     return {save:valid,notice:'旧冒険のレベル・所持金・学習記録を引き継ぎました。旧データと移行前バックアップも保管しています。新しい物語は最初の街から始まります。'};
   } catch(error){return {save:newSave(),notice:'保存データを読み取れませんでした。元データは変更していません。設定からバックアップを保存できます。',blocked:true};}
 }
-export function persist(storage,s) {try{storage.setItem(SAVE_KEY,JSON.stringify(s));return true;}catch{return false;}}
+export function persist(storage,s) {const previous=s.revision||0;try{s.revision=previous+1;storage.setItem(SAVE_KEY,JSON.stringify(s));return true;}catch{s.revision=previous;return false;}}
 export function recordAnswer(s,word,correct) {
   const r=s.words[word]||(s.words[word]={o:0,n:0});r[correct?'o':'n']++;s[correct?'ok':'ng']++;
 }
@@ -69,7 +74,7 @@ export function swapMember(s,incoming,outgoing) {
 export function settleBattle(s) {
   const b=s.battle;if(!b||b.phase!=='result'||!b.result)return false;
   if(b.result==='victory'){
-    const e=ENCOUNTERS.find(x=>x.id===b.encounterId);s.gold+=e.reward;s.wins++;
+    const e=ENCOUNTERS.find(x=>x.id===b.encounterId);grantDungeonTickets(s,e);s.gold+=e.reward;s.wins++;
     if(!s.completed.includes(e.id)){s.completed.push(e.id);s.level=Math.max(s.level,1+Math.floor(s.completed.length/2));}
   }
   s.battle=null;return true;
