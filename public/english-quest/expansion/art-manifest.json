@@ -20,7 +20,12 @@
     "leaf_mouse": "expansion/leaf_mouse.webp",
     "pond_nurse": "expansion/pond_nurse.webp",
     "mushroom-alchemist": "expansion/mushroom-alchemist.webp",
-    "comet_cat": "expansion/comet_cat.webp"
+    "comet_cat": "expansion/comet_cat.webp",
+    "reed_archer": "expansion/reed_archer.webp",
+    "bell_robot": "expansion/bell_robot.webp",
+    "steam_otter": "expansion/steam_otter.webp",
+    "storm_kite": "expansion/storm_kite.webp",
+    "moss_giant": "expansion/moss_giant.webp"
   },
   "enemies": {
     "eclipse_wyrm": "expansion/eclipse_wyrm.webp",
