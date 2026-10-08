@@ -1,14 +1,17 @@
 import {HEROES, SKILLS, ENEMIES, ENCOUNTERS, LESSONS, INTENTS} from './data.js';
+import {applyEffects,tickEffects,mag,has,attackStat} from './effects.js';
+import {enemyDefinition} from './expansion.js';
 export const alive = u => u.hp > 0;
 const clone = x => JSON.parse(JSON.stringify(x));
-export function makeHero(id, level=1, job=null) {
+export function makeHero(id, level=1, job=null,scaled=false) {
   const d=HEROES[job||id], bonus=Math.min(20, Math.max(0,level-1)*3);
-  return {id,job:job||id,name:HEROES[id].name,maxHp:d.hp+bonus,hp:d.hp+bonus,maxMp:d.mp,mp:d.mp,atk:d.atk+Math.floor(bonus/3),status:{},shield:0};
+  const factor=1+.075*(Math.min(50,Math.max(1,level))-1),hp=d.expansion||scaled?Math.round(d.hp*factor):d.hp+bonus,atk=d.expansion||scaled?Math.round(d.atk*factor):d.atk+Math.floor(bonus/3);
+  return {id,job:job||id,name:HEROES[id].name,maxHp:hp,hp,maxMp:d.mp,mp:d.mp,atk,status:{},shield:0,shieldTurns:0,aura:{},cooldowns:{},remainders:{},tags:d.tags||[]};
 }
 export function createBattle(party, encounterId, level=1, variant=0, roster=party, heroJob='hero') {
   const encounter=ENCOUNTERS.find(x=>x.id===encounterId);
   if (!encounter || !Array.isArray(party) || party.length<1 || party.length>4 || new Set(party).size!==party.length || party.some(id=>!HEROES[id])) throw Error('Invalid party or encounter');
-  const b={version:1,encounterId,round:1,phase:'command',party:party.map(id=>makeHero(id,level,id==='hero'?heroJob:null)),reserve:roster.filter(id=>!party.includes(id)).map(id=>makeHero(id,level)),enemies:encounter.enemies.map((key,i)=>({...clone(ENEMIES[key]),id:`e${i}`,key,maxHp:ENEMIES[key].hp,mp:0,status:{},shield:0,cycle:ENEMIES[key].pattern.includes('charge')?0:(variant+i)%ENEMIES[key].pattern.length})),acted:[],plans:[],supplies:{herb:3,antidote:2,phoenix:1},log:[],events:[],feedback:null,result:null};
+  const b={version:1,encounterId,round:1,phase:'command',runId:globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random(),expansion:!!encounter.expansion,party:party.map(id=>makeHero(id,level,id==='hero'?heroJob:null,encounter.expansion)),reserve:roster.filter(id=>!party.includes(id)).map(id=>makeHero(id,level,null,encounter.expansion)),enemies:encounter.enemies.map((key,i)=>{const d=enemyDefinition(key,encounter,ENEMIES);return {...clone(d),id:`e${i}`,key,maxHp:d.hp,mp:0,status:{},aura:{},cooldowns:{},remainders:{},shield:0,shieldTurns:0,cycle:d.pattern.includes('charge')?0:(variant+i)%d.pattern.length};}),acted:[],plans:[],supplies:{herb:3,antidote:2,phoenix:1},log:[],events:[],feedback:null,result:null};
   planEnemies(b);return b;
 }
 export const currentActor = b => b.party.find(u=>alive(u)&&!b.acted.includes(u.id));
@@ -45,17 +48,25 @@ export function intentText(b,e) {
   const value=e.intent.type==='heal'?' +30':e.intent.type==='revive'?' HP35%':e.intent.type==='protect'?' 軽減40%':e.intent.type==='charge'?` 次回全体 ${Math.round(e.atk*(e.blastPower||1))}`:` ${e.intent.type==='blast'?Math.round(e.atk*(e.blastPower||1)*(1-.5*(e.status.chargeWeak||0))):e.atk}${e.intent.type==='blast'&&e.status.chargeWeak?'（詠唱妨害で軽減）':''}`;
   return `${d.icon} ${d.en} · ${d.ja}${value}${['charge','blast'].includes(e.intent.type)?'':t?' → '+t.name:''}`;
 }
-function damage(b,actor,target,amount,kind,bypass=false) {
+function damage(b,actor,target,amount,kind,bypass=false,options={}) {
+  if(!options.dot){amount*=1-Math.max(0,Math.min(.6,(target.armor||0)-mag(target,'armor_break')));if(options.single&&target.traits?.includes('single_target_damage_resist_25'))amount*=.75;}
+  amount*=1-Math.min(.4,mag(target,'guard'));
   if(actor!==target)amount *= 1-(target.guardReduction||0);
-  const absorbed=bypass?0:Math.min(target.shield||0,amount);
+  const shieldBonus=!options.dot&&actor.traits?.includes('shield_damage_bonus_25')?1.25:1;
+  const absorbed=bypass?0:Math.min(target.shield||0,amount*shieldBonus);
   target.shield=Math.max(0,(target.shield||0)-absorbed);
-  const hit=Math.max(0,Math.round(amount-absorbed));target.hp=Math.max(0,target.hp-hit);
+  const hit=Math.max(0,Math.round(amount-absorbed/shieldBonus));target.hp=Math.max(0,target.hp-hit);
   event(b,actor,target,`${actor.name} → ${target.name}：${hit}ダメージ${absorbed?' / 盾が'+absorbed+'吸収':''}`,kind,hit);
-  if(!alive(target)){target.status={};target.protecting=null;event(b,actor,target,`${target.name}は倒れた。`,'defeat');}
+  if(!options.dot&&!options.reflected&&actor!==target){
+    const trait=target.traits?.find(t=>t.startsWith('thorns_')),thorn=mag(target,'thorns')*(target.aura?.thorns?.sourceAtk||target.atk)||(trait?Number(trait.split('_')[1])*target.atk:0);
+    b.reflections||={};const key=b.round+':'+target.id+':'+actor.id;
+    if(thorn&&!b.reflections[key]){b.reflections[key]=true;damage(b,target,actor,Math.max(1,Math.round(thorn)),'slash',false,{reflected:true});}
+  }
+  if(!alive(target)){target.status={};target.aura={};target.protecting=null;event(b,actor,target,`${target.name}は倒れた。`,'defeat');}
 }
 function heal(b,actor,target,amount,revive=false) {
   if(!alive(target)&&!revive)return;
-  const n=Math.min(target.maxHp-target.hp,amount);target.hp+=n;
+  const n=Math.min(target.maxHp-target.hp,Math.round(amount*(1-Math.min(.5,mag(target,'heal_down')))));target.hp+=n;
   if(revive)target.status={};
   event(b,actor,target,`${actor.name} → ${target.name}：${revive?'蘇生 / ':''}HP +${n}`,'heal',n);
 }
@@ -68,6 +79,7 @@ export function useSkill(b,actorId,skillId,targetId,correct=true) {
   if(b.phase!=='command'||b.result)throw Error('Action is locked');
   const actor=b.party.find(x=>x.id===actorId),skill=SKILLS[skillId];
   if(!actor||!alive(actor)||b.acted.includes(actorId)||!availableSkills(actor).includes(skillId))throw Error('Actor cannot act');
+  if((actor.cooldowns?.[skillId]||0)>0||has(actor,'silence')&&!['strike','guard','herb','antidote','phoenix'].includes(skillId))throw Error('この技は待ち時間中、または沈黙中です。');
   if(actor.mp<skill.cost)throw Error('Not enough focus');
   if(skill.supply&&!b.supplies[skill.supply])throw Error('No supplies');
   const candidates=targetsFor(b,actorId,skillId);
@@ -81,15 +93,16 @@ export function useSkill(b,actorId,skillId,targetId,correct=true) {
     const protector=b.enemies.find(e=>alive(e)&&e.protecting===target.id&&e.status.stun!==1&&e.status.silence!==1);
     if(protector)event(b,protector,target,`${protector.name}が${target.name}を護衛。ダメージ${40*(1-Math.max(protector.status.stun||0,protector.status.silence||0))}%軽減。`,'guard');
   }
+  if(skill.effects){applyEffects(b,actor,skill.effects,target,potency,{damage,heal,event},{skillId});actor.cooldowns||={};actor.cooldowns[skillId]=skill.cooldown;}
   if(skill.power)targets.forEach(t=>{
     const exposed=t.status.exposed>0,marked=t.status.marked>0;
     const weak=t.weak===(skill.element||'physical') || (skillId==='frost'&&t.weak==='ice');
     const protector=!skill.bypass&&b.enemies.find(e=>alive(e)&&e.protecting===t.id);
     const protection=protector ? .4*(1-Math.max(protector.status.stun||0,protector.status.silence||0)):0;
-    let amount=actor.atk*skill.power*(weak?1.3:1)*(exposed?1.35:1)*(1+.5*(t.status.marked||0))*(1+.4*(actor.status.inspired||0))*(1-protection);
+    let amount=attackStat(actor)*skill.power*(weak?1.3:1)*(exposed?1.35:1)*(1+.5*(t.status.marked||0))*(1+.4*(actor.status.inspired||0))*(1-protection);
     if(skillId==='ignite'&&marked)amount+=12*t.status.marked;
     if(skillId==='sever'&&exposed)amount+=10;
-    damage(b,actor,t,Math.round(amount*potency),skill.kind,skill.bypass);
+    damage(b,actor,t,Math.round(amount*potency),skill.kind,skill.bypass,{single:!teamSkill});
     if(exposed)t.status.exposed--;if(marked)t.status.marked=0;
     if(skill.effect&&alive(t))t.status[skill.effect]=skill.effect==='exposed'?(correct?2:1):potency;
   });
@@ -109,11 +122,26 @@ export function useSkill(b,actorId,skillId,targetId,correct=true) {
 export function continueBattle(b) {
   if(b.phase!=='feedback')throw Error('No result to continue');
   b.feedback=null;
-  if(b.result){b.phase='result';return [];}
+  if(b.result){
+    const encounter=ENCOUNTERS.find(e=>e.id===b.encounterId),next=(b.wave||0)+1;
+    if(b.result==='victory'&&encounter.waves?.[next]){
+      b.wave=next;b.enemies=encounter.waves[next].map((key,i)=>{const d=enemyDefinition(key,encounter,ENEMIES);return {...clone(d),id:`e${i}`,key,maxHp:d.hp,mp:0,status:{},aura:{},cooldowns:{},remainders:{},shield:0,shieldTurns:0,cycle:0};});
+      b.result=null;b.round++;b.acted=[];b.plans=[];b.reflections={};
+      for(const u of [...b.party,...b.reserve])for(const k of Object.keys(u.cooldowns||{}))u.cooldowns[k]=Math.max(0,u.cooldowns[k]-1);
+      b.phase='command';planEnemies(b);b.events=[];event(b,null,null,'次の敵が現れた。第'+(next+1)+'波。','wave');return clone(b.events);
+    }
+    b.phase='result';return [];
+  }
   if(currentActor(b)){b.phase='command';return [];}
   b.events=[];
   b.enemies.filter(alive).forEach(e=>{
     if(!b.party.some(alive))return;
+    if(e.action){
+      const action=e.action,active=action.pattern==='basic'||b.round%(action.period||1)===0;
+      const stopped=e.status.stun===1&&!e.boss;
+      if(!stopped){const effects=active&&!has(e,'silence')&&e.status.silence!==1?action.effects:[{type:'damage',target:'ally_lowest_hp',power:1}];const reduction=Math.max(.5*(e.status.chill||0),(e.boss?.5:1)*(e.status.stun||0),active&&action.pattern!=='basic'?(e.status.silence||0):0);applyEffects(b,e,effects,null,1-reduction,{damage,heal,event},{enemy:true});}
+      delete e.status.stun;delete e.status.chill;delete e.status.silence;return;
+    }
     const type=e.intent.type;
     if(type==='charge'&&(e.status.silence===1||(e.status.stun===1&&!e.boss)))e.status.chargeBroken=1;
     if(type==='charge'&&!e.status.chargeBroken&&(e.status.stun||e.status.silence))e.status.chargeWeak=e.status.silence*2||e.status.stun*(e.boss?1:2);
@@ -141,7 +169,8 @@ export function continueBattle(b) {
     }
     delete e.status.stun;delete e.status.chill;delete e.status.silence;if(type==='blast')delete e.status.chargeWeak;e.protecting=null;
   });
-  b.party.forEach(u=>{u.shield=0;delete u.guardReduction;u.mp=Math.min(u.maxMp,u.mp+2);if(u.status.poison)u.status.poison--;});
+  tickEffects(b,{damage,heal,event});
+  b.party.forEach(u=>{if(!u.shieldTurns)u.shield=0;delete u.guardReduction;u.mp=Math.min(u.maxMp,u.mp+2);if(u.status.poison)u.status.poison--;});
   b.result=outcome(b);b.phase=b.result?'result':'command';b.round++;b.acted=[];
   if(!b.result)planEnemies(b);
   return clone(b.events);
@@ -154,7 +183,7 @@ export function queueAction(b,actorId,skillId,targetId) {
     if(actorId==='hero'||!b.reserve.some(u=>u.id===targetId&&alive(u))||b.plans.some(p=>p.actorId!==actorId&&p.skillId==='swap'&&p.targetId===targetId))throw Error('その交代はできません。');
   } else {
     const s=SKILLS[skillId];
-    if(!s||!availableSkills(actor).includes(skillId)||actor.mp<s.cost)throw Error('集中力が不足しています。');
+    if(!s||!availableSkills(actor).includes(skillId)||actor.mp<s.cost||(actor.cooldowns?.[skillId]||0)>0||(has(actor,'silence')&&!['strike','guard','herb','antidote','phoenix'].includes(skillId)))throw Error('集中力が不足しています。');
     if(!targetsFor(b,actorId,skillId).some(t=>t.id===targetId))throw Error('対象を選び直してください。');
     if(s.supply&&b.plans.filter(p=>p.actorId!==actorId&&p.skillId===skillId).length>=b.supplies[s.supply])throw Error('支給品が不足しています。');
   }
@@ -173,6 +202,7 @@ export function resolveRound(b, correct) {
       const incoming=b.reserve[i],slot=b.party.indexOf(actor);b.party[slot]=incoming;b.reserve[i]=actor;b.acted.push(incoming.id);
       b.events=[];event(b,actor,incoming,`${actor.name} → ${incoming.name}に交代。次ラウンドから行動。`,'swap');events.push(...b.events);continue;
     }
+    if(has(actor,'silence')&&!['strike','guard','herb','antidote','phoenix'].includes(p.skillId)){p.skillId='strike';p.targetId=b.enemies.find(alive)?.id;}
     const choices=targetsFor(b,actor.id,p.skillId);
     const target=choices.find(t=>t.id===p.targetId)||([...choices].sort((a,c)=>a.hp-c.hp)[0]);
     if(!target){b.acted.push(actor.id);b.events=[];event(b,actor,actor,`${actor.name}：有効な対象なし。資源は消費しない。`,'miss');events.push(...b.events);continue;}

@@ -74,3 +74,6 @@ export const INTENTS = {
  charge:{en:'Channel',ja:'力を溜める',icon:'⌛'},blast:{en:'Unleash',ja:'全体大技',icon:'✧'},
 };
 LESSONS.herb=LESSONS.mend;LESSONS.antidote=LESSONS.cleanse;LESSONS.phoenix=LESSONS.revive;
+
+import {installExpansion} from './expansion.js';
+installExpansion({HEROES,SKILLS,LESSONS,ENEMIES,ENCOUNTERS});

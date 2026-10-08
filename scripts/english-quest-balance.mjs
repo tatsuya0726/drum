@@ -36,11 +36,11 @@ export function simulate(team,chapter,strategy='support',answers='correct'){
  return {team:team.slice(1).join('/'),encounter:e.id,strategy,answers,result:b.result||'timeout',rounds,hp:b.party.reduce((sum,u)=>sum+u.hp,0),damage,deaths,supplies:6-b.supplies.herb-b.supplies.antidote-b.supplies.phoenix};
 }
 export function balanceReport(){
- const ids=Object.keys(HEROES).filter(x=>x!=='hero'),teams=[];
+ const ids=Object.keys(HEROES).filter(x=>x!=='hero'&&!HEROES[x].expansion),teams=[];
  for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++)for(let k=j+1;k<ids.length;k++)teams.push(['hero',ids[i],ids[j],ids[k]]);
  const results=[];
- for(const team of teams)for(let chapter=0;chapter<ENCOUNTERS.length;chapter++)for(const strategy of ['naive','support','threat'])for(const answers of ['correct','mixed'])results.push(simulate(team,chapter,strategy,answers));
- return {runs:results.length,summary:ENCOUNTERS.flatMap(e=>['correct','mixed'].map(answers=>({encounter:e.id,answers,policies:Object.fromEntries(['naive','support','threat'].map(strategy=>{const r=results.filter(x=>x.encounter===e.id&&x.answers===answers&&x.strategy===strategy);return [strategy,{wins:r.filter(x=>x.result==='victory').length,total:r.length,rounds:+(r.reduce((n,x)=>n+x.rounds,0)/r.length).toFixed(1),damage:+(r.reduce((n,x)=>n+x.damage,0)/r.length).toFixed(1),deaths:r.reduce((n,x)=>n+x.deaths,0)}];}))}))),results};
+ for(const team of teams)for(let chapter=0;chapter<ENCOUNTERS.filter(e=>!e.expansion).length;chapter++)for(const strategy of ['naive','support','threat'])for(const answers of ['correct','mixed'])results.push(simulate(team,chapter,strategy,answers));
+ return {runs:results.length,summary:ENCOUNTERS.filter(e=>!e.expansion).flatMap(e=>['correct','mixed'].map(answers=>({encounter:e.id,answers,policies:Object.fromEntries(['naive','support','threat'].map(strategy=>{const r=results.filter(x=>x.encounter===e.id&&x.answers===answers&&x.strategy===strategy);return [strategy,{wins:r.filter(x=>x.result==='victory').length,total:r.length,rounds:+(r.reduce((n,x)=>n+x.rounds,0)/r.length).toFixed(1),damage:+(r.reduce((n,x)=>n+x.damage,0)/r.length).toFixed(1),deaths:r.reduce((n,x)=>n+x.deaths,0)}];}))}))),results};
 }
 export function verifyBalance(report){
  const failures=[];

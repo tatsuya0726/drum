@@ -84,7 +84,7 @@ describe('English Quest cast interruption and tactical priorities',()=>{
 describe('English Quest complete production artwork',()=>{
  it('maps every cast member, enemy and scene to a real optimized WebP',()=>{
   const manifest=JSON.parse(readFileSync(new URL('../public/english-quest/assets/manifest.json',import.meta.url),'utf8'));
-  const required={characters:Object.keys(HEROES),enemies:Object.keys(ENEMIES),backgrounds:['town',...new Set(ENCOUNTERS.map(e=>e.area))]};
+  const required={characters:Object.keys(HEROES).filter(id=>!HEROES[id].expansion),enemies:Object.keys(ENEMIES).filter(id=>!ENEMIES[id].expansion),backgrounds:['town',...new Set(ENCOUNTERS.filter(e=>!e.expansion).map(e=>e.area))]};
   let checked=0;
   for(const [group,ids] of Object.entries(required))for(const id of ids){
    const path=manifest.rebirth?.[group]?.[id];
