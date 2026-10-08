@@ -1,0 +1,15 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><title>English Quest development QA</title><style>body{background:#172831;color:#fff;font:16px system-ui;padding:24px}button{margin:10px;padding:16px}p{max-width:700px}</style><h1>ローカル検証用の冒険</h1><p>この開発用ページは公開ビルドに含まれません。ローカル検証セーブをバックアップして、テスト状態を読み込みます。本番サイトのセーブには触れません。</p><button id="town">全仲間・全地域・召喚80枚</button><button id="battle">最終地域・複数敵</button><button id="long">長文4択</button><button id="victory">勝利画面</button><button id="defeat">全滅画面</button><button id="wave">次の波の直前</button><button id="restore">検証前の状態を復元</button><script type="module">
+const load=name=>import(/* @vite-ignore */ '/english-quest/'+name);
+const {newSave,SAVE_KEY}=await load('save.js');
+const {HEROES,ENCOUNTERS}=await load('data.js');
+const {createBattle,queueAction,resolveRound,resumePlanning}=await load('engine.js');
+const {validateQuestionBank,chooseBankQuestion}=await load('question-bank.js');
+const backup=SAVE_KEY+'_expansion_qa_backup';
+document.addEventListener('click',async ev=>{const mode=ev.target.id;if(!['town','battle','long','victory','defeat','wave','restore'].includes(mode))return;
+ if(mode==='restore'){const raw=localStorage.getItem(backup);if(raw)localStorage.setItem(SAVE_KEY,raw);location.href='/english-quest/index.html';return;}
+ if(!localStorage.getItem(backup))localStorage.setItem(backup,localStorage.getItem(SAVE_KEY)||JSON.stringify(newSave()));
+ const s=newSave();s.level=49;s.gold=50000;s.roster=Object.keys(HEROES);s.party=['hero','dew_slime','star-serpent','lantern-moth'];s.completed=ENCOUNTERS.map(e=>e.id);s.collection={...s.collection,initialized:true,tickets:80,shards:60,pages:1};s.settings.motion='reduced';
+ if(mode!=='town'){s.battle=createBattle(s.party,'words_03',49,0,s.roster);for(const u of s.battle.party)queueAction(s.battle,u.id,'strike','e0');}
+ if(['victory','defeat','wave'].includes(mode)){s.battle=createBattle(s.party,'words_05',49,0,s.roster);if(mode==='defeat'){s.battle.party.forEach(u=>u.hp=0);s.battle.result='defeat';s.battle.phase='result';}else {s.battle.enemies.forEach(u=>u.hp=1);for(const u of s.battle.party)queueAction(s.battle,u.id,'strike','e0');if(mode==='victory'){resolveRound(s.battle,true);resumePlanning(s.battle);s.battle.enemies.forEach(u=>u.hp=1);for(const u of s.battle.party)queueAction(s.battle,u.id,'strike','e0');resolveRound(s.battle,true);}}}if(mode==='long'){const qs=await (await fetch('/english-quest/expansion/questions/english-quest-600-questions.json')).json();const q=[...qs].sort((a,b)=>(b.prompt.length+b.englishText.length+b.options.join('').length)-(a.prompt.length+a.englishText.length+a.options.join('').length))[0];const bank=validateQuestionBank([q],{approvedIds:[q.id]}).approved;s.battle.quiz={question:chooseBankQuestion(bank),answered:null,actor:'hero'};}
+ localStorage.setItem(SAVE_KEY,JSON.stringify(s));location.href='/english-quest/index.html';
+});</script></html>

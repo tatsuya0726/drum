@@ -1,0 +1,1347 @@
+[
+  {
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "question",
+    "screen": "battle",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "question",
+    "screen": "battle",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "question",
+    "screen": "battle",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "clipped": [],
+    "document": [
+      829,
+      391
+    ],
+    "outside": [
+      "1レインHP 515/515MP 12",
+      "2しずくプルンHP 713/713MP 12",
+      "3暁星蛇アカリオHP 943/943MP 12",
+      "4トモシガHP 575/575MP 12"
+    ],
+    "phase": "question",
+    "screen": "battle",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "question",
+    "screen": "battle",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "wrong-feedback",
+    "screen": "battle",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "wrong-feedback",
+    "screen": "battle",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "wrong-feedback",
+    "screen": "battle",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "wrong-feedback",
+    "screen": "battle",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "wrong-feedback",
+    "screen": "battle",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "round-feedback",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "feedback",
+    "screen": "battle",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "round-feedback",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "feedback",
+    "screen": "battle",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "round-feedback",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "feedback",
+    "screen": "battle",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "round-feedback",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "feedback",
+    "screen": "battle",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "round-feedback",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "feedback",
+    "screen": "battle",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "commands",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "commands",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "commands",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "commands",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "commands",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "town",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "town",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "town",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "town",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "town",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "town",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "town",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "town",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "town",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "town",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "guild",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "guild",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "guild",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "guild",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "guild",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "guild",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "guild",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "guild",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "guild",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "guild",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "collection",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "collection",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "collection",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "collection",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "collection",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "map",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "map",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "map",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "map",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "map",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "map",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "map",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "map",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "map",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "map",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "notebook",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "notebook",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "notebook",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "notebook",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "notebook",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "notebook",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "notebook",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "notebook",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "notebook",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "notebook",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "rare-collection",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "rare-collection",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "rare-collection",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "rare-collection",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "rare-collection",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "four-enemies",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "four-enemies",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "four-enemies",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "four-enemies",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "four-enemies",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "audio-settings",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "audio-settings",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "audio-settings",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "audio-settings",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "audio-settings",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "victory",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "result",
+    "screen": "battle",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "victory",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "result",
+    "screen": "battle",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "victory",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "result",
+    "screen": "battle",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "victory",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "result",
+    "screen": "battle",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "victory",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "result",
+    "screen": "battle",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "defeat",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "result",
+    "screen": "battle",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "defeat",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "result",
+    "screen": "battle",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "defeat",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "result",
+    "screen": "battle",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "defeat",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "result",
+    "screen": "battle",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "defeat",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "result",
+    "screen": "battle",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "second-wave",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "second-wave",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "second-wave",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "second-wave",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "second-wave",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "command",
+    "screen": "battle",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "long-question-final",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "question",
+    "screen": "battle",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "long-question-final",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "question",
+    "screen": "battle",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "long-question-final",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "question",
+    "screen": "battle",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "long-question-final",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "question",
+    "screen": "battle",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "long-question-final",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "question",
+    "screen": "battle",
+    "viewport": [
+      1280,
+      900
+    ]
+  },
+  {
+    "name": "saved-recruitment",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      390,
+      844
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "saved-recruitment",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      375,
+      667
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "name": "saved-recruitment",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      320,
+      568
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      320,
+      568
+    ]
+  },
+  {
+    "name": "saved-recruitment",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      844,
+      390
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      844,
+      390
+    ]
+  },
+  {
+    "name": "saved-recruitment",
+    "brokenImages": [],
+    "clipped": [],
+    "document": [
+      1280,
+      900
+    ],
+    "outside": [],
+    "phase": "",
+    "screen": "collection",
+    "viewport": [
+      1280,
+      900
+    ]
+  }
+]

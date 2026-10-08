@@ -11,7 +11,7 @@ export function makeHero(id, level=1, job=null,scaled=false) {
 export function createBattle(party, encounterId, level=1, variant=0, roster=party, heroJob='hero') {
   const encounter=ENCOUNTERS.find(x=>x.id===encounterId);
   if (!encounter || !Array.isArray(party) || party.length<1 || party.length>4 || new Set(party).size!==party.length || party.some(id=>!HEROES[id])) throw Error('Invalid party or encounter');
-  const b={version:1,encounterId,round:1,phase:'command',runId:globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random(),expansion:!!encounter.expansion,party:party.map(id=>makeHero(id,level,id==='hero'?heroJob:null,encounter.expansion)),reserve:roster.filter(id=>!party.includes(id)).map(id=>makeHero(id,level,null,encounter.expansion)),enemies:encounter.enemies.map((key,i)=>{const d=enemyDefinition(key,encounter,ENEMIES);return {...clone(d),id:`e${i}`,key,maxHp:d.hp,mp:0,status:{},aura:{},cooldowns:{},remainders:{},shield:0,shieldTurns:0,cycle:d.pattern.includes('charge')?0:(variant+i)%d.pattern.length};}),acted:[],plans:[],supplies:{herb:3,antidote:2,phoenix:1},log:[],events:[],feedback:null,result:null};
+  const b={version:1,level,encounterId,round:1,phase:'command',runId:globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random(),expansion:!!encounter.expansion,party:party.map(id=>makeHero(id,level,id==='hero'?heroJob:null,encounter.expansion)),reserve:roster.filter(id=>!party.includes(id)).map(id=>makeHero(id,level,null,encounter.expansion)),enemies:encounter.enemies.map((key,i)=>{const d=enemyDefinition(key,encounter,ENEMIES);return {...clone(d),id:`e${i}`,key,maxHp:d.hp,mp:0,status:{},aura:{},cooldowns:{},remainders:{},shield:0,shieldTurns:0,cycle:d.pattern.includes('charge')?0:(variant+i)%d.pattern.length};}),acted:[],plans:[],supplies:{herb:3,antidote:2,phoenix:1},log:[],events:[],feedback:null,result:null};
   planEnemies(b);return b;
 }
 export const currentActor = b => b.party.find(u=>alive(u)&&!b.acted.includes(u.id));
@@ -58,7 +58,7 @@ function damage(b,actor,target,amount,kind,bypass=false,options={}) {
   const hit=Math.max(0,Math.round(amount-absorbed/shieldBonus));target.hp=Math.max(0,target.hp-hit);
   event(b,actor,target,`${actor.name} → ${target.name}：${hit}ダメージ${absorbed?' / 盾が'+absorbed+'吸収':''}`,kind,hit);
   if(!options.dot&&!options.reflected&&actor!==target){
-    const trait=target.traits?.find(t=>t.startsWith('thorns_')),thorn=mag(target,'thorns')*(target.aura?.thorns?.sourceAtk||target.atk)||(trait?Number(trait.split('_')[1])*target.atk:0);
+    const trait=target.traits?.find(t=>t.startsWith('thorns_')),thorn=(target.aura?.thorns?.strength??mag(target,'thorns')*(target.aura?.thorns?.sourceAtk||target.atk))||(trait?Number(trait.split('_')[1])*target.atk:0);
     b.reflections||={};const key=b.round+':'+target.id+':'+actor.id;
     if(thorn&&!b.reflections[key]){b.reflections[key]=true;damage(b,target,actor,Math.max(1,Math.round(thorn)),'slash',false,{reflected:true});}
   }
@@ -86,7 +86,7 @@ export function useSkill(b,actorId,skillId,targetId,correct=true) {
   const target=candidates.find(x=>x.id===targetId);
   if(!target)throw Error('Choose a living / valid target again');
   b.events=[];actor.mp-=skill.cost;b.acted.push(actorId);if(skill.supply)b.supplies[skill.supply]--;
-  const potency=correct?1:.5;
+  const potency=correct?1:.5,supportScale=b.expansion?1+.075*((b.level||1)-1):1;
   const teamSkill=['allies','enemies'].includes(skill.target);
   let targets=teamSkill?candidates:[target];
   if(['enemy','enemies'].includes(skill.target)&&!teamSkill&&!skill.bypass){
@@ -108,9 +108,9 @@ export function useSkill(b,actorId,skillId,targetId,correct=true) {
   });
   if(skill.power)actor.status.inspired=0;
   {
-    if(skillId==='mend'||skillId==='herb')heal(b,actor,target,Math.round((skillId==='mend'?42:35)*potency));
+    if(skillId==='mend'||skillId==='herb')heal(b,actor,target,Math.round((skillId==='mend'?42:35)*potency*supportScale));
     if(skillId==='revive'||skillId==='phoenix')heal(b,actor,target,Math.ceil(target.maxHp*.45*potency),true);
-    if(skillId==='cleanse'||skillId==='antidote'){if(correct)delete target.status.poison;else if(target.status.poison)target.status.poison=Math.floor(target.status.poison/2);heal(b,actor,target,Math.round((skillId==='antidote'?15:18)*potency));}
+    if(skillId==='cleanse'||skillId==='antidote'){if(target.aura?.poison){if(correct)delete target.aura.poison;else{target.aura.poison.power*=.5;if(target.aura.poison.strength!==undefined)target.aura.poison.strength*=.5;}}if(correct)delete target.status.poison;else if(target.status.poison)target.status.poison=Math.floor(target.status.poison/2);heal(b,actor,target,Math.round((skillId==='antidote'?15:18)*potency*supportScale));}
     if(skillId==='guard'||skillId==='shelter')targets.forEach(t=>{t.guardReduction=Math.max(t.guardReduction||0,.5*potency);event(b,actor,t,`${t.name}：次の敵ターンのダメージを${50*potency}%軽減`,'guard');});
     if(skillId==='inspire')targets.forEach(t=>{t.status.inspired=potency;event(b,actor,t,`${t.name}の次の一撃を鼓舞。`,'song');});
   }

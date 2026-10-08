@@ -57,7 +57,11 @@ export function applyEffects(b,actor,effects,selected,potency,api,{enemy=false,s
     if(!buff&&t.status?.poison)keys.push('$poison');
     keys.slice(0,count).forEach(k=>{if(k==='$shield'){t.shield=0;t.shieldTurns=0;}else if(k==='$poison')delete t.status.poison;else delete t.aura[k];});
     api.event(b,actor,t,t.name+'：'+(buff?'強化解除':'浄化')+(count?'':'（半分を蓄積）'),'song');
-   }else if(e.type==='cooldown_reduce'){for(const k of Object.keys(t.cooldowns||{}))t.cooldowns[k]=Math.max(0,t.cooldowns[k]-count);}
+   }else if(e.type==='cooldown_reduce'){
+    if(t.reductionRound!==b.round){t.reductionRound=b.round;t.reductionUsed=0;}
+    const actual=Math.min(count,1-(t.reductionUsed||0));t.reductionUsed=(t.reductionUsed||0)+actual;
+    for(const k of Object.keys(t.cooldowns||{}))t.cooldowns[k]=Math.max(0,t.cooldowns[k]-actual);
+   }
   }
   if(e.consume_status){if(e.consume_status.startsWith('self:'))delete actor.aura?.[e.consume_status.slice(5)];else targets.forEach(t=>{delete t.aura?.[e.consume_status];});}
  });

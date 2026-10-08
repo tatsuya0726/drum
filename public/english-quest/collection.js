@@ -4,6 +4,7 @@ export const RECRUITMENT_RULES=Object.freeze({version:2,cost:1,rates:{1:.45,2:.3
 const copy=x=>JSON.parse(JSON.stringify(x));
 const integer=(n,label)=>{if(!Number.isSafeInteger(n)||n<0)throw Error('Invalid '+label);return n;};
 export const newCollection=()=>({version:1,tickets:0,shards:0,drawCount:0,srMisses:0,ssrMisses:0,sequence:0,pages:0,stamps:0,initialized:false,rewardedRuns:[],lastReceipt:null});
+export const nextRarityOdds=c=>c.ssrMisses>=29?{1:0,2:0,3:0,4:1}:c.srMisses>=9?{1:0,2:0,3:.8,4:.2}:{...RECRUITMENT_RULES.rates};
 export function validateCollection(raw){
  const c={...newCollection(),...copy(raw||{})};if(c.version!==1)throw Error('Unknown collection version');
  for(const k of ['tickets','shards','drawCount','sequence','srMisses','ssrMisses','pages','stamps'])integer(c[k],k);

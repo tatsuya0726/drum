@@ -1,13 +1,14 @@
 import {HEROES, ENCOUNTERS, ENEMIES, SKILLS, INTENTS} from './data.js';
 import {makeHero} from './engine.js';
 import {newCollection,validateCollection,grantDungeonTickets} from './collection.js';
-import {enemyDefinition,pack,BASIC_IDS} from './expansion.js';
+import {enemyDefinition,GUARANTEED_REWARDS,BASIC_IDS} from './expansion.js';
+import {audioSettings} from './audio-manager.js';
 import {STATUS_NAMES} from './effects.js';
 export const SAVE_KEY='english_quest_rebirth_v1';
 export const LEGACY_KEY='english_quest_v2';
 export const BACKUP_KEY='english_quest_v2_backup_before_rebirth';
 export const COLLECTION_BACKUP_KEY=SAVE_KEY+'_before_collection_v2';
-export const newSave=()=>({version:2,revision:0,collection:newCollection(),questionRecords:{},level:1,heroJob:'hero',gold:20,wins:0,ok:0,ng:0,words:{},phr:{},roster:['hero'],party:['hero'],completed:[],battle:null,settings:{sound:false,motion:'system'},legacy:null});
+export const newSave=()=>({version:2,revision:0,collection:newCollection(),questionRecords:{},level:1,heroJob:'hero',gold:20,wins:0,ok:0,ng:0,words:{},phr:{},roster:['hero'],party:['hero'],completed:[],battle:null,settings:{...audioSettings(),motion:'system'},legacy:null});
 const number=(x,fall=0)=>Number.isFinite(x)?Math.max(0,Math.floor(x)):fall;
 export function sanitizeSave(raw) {
   if(!raw||![1,2].includes(raw.version)||!Array.isArray(raw.party)||!raw.words||typeof raw.words!=='object'||Array.isArray(raw.words))throw Error('Invalid save');
@@ -22,18 +23,19 @@ export function sanitizeSave(raw) {
   s.level=Math.min(50,Math.max(1,number(raw.level,1)));s.gold=number(raw.gold);s.ok=number(raw.ok);s.ng=number(raw.ng);s.wins=number(raw.wins);
   s.heroJob=HEROES[raw.heroJob]?raw.heroJob:'hero';
   s.presets=(Array.isArray(raw.presets)?raw.presets:[]).slice(0,4).map(p=>Array.isArray(p)&&p.length>0&&p.length<=4&&p[0]==='hero'&&new Set(p).size===p.length&&p.every(id=>s.roster.includes(id))?p:null);
-  s.settings={sound:raw.settings?.sound===true,motion:['system','reduced'].includes(raw.settings?.motion)?raw.settings.motion:'system'};
+  s.settings={...audioSettings(raw.settings),motion:['system','reduced'].includes(raw.settings?.motion)?raw.settings.motion:'system'};
   if(s.battle){
-    const b=JSON.parse(JSON.stringify(s.battle));s.battle=b;
+    const b=JSON.parse(JSON.stringify(s.battle));s.battle=b;b.level=s.level;
     if(b.version!==1||!ENCOUNTERS.some(e=>e.id===b.encounterId)||!['command','feedback','result'].includes(b.phase)||!Array.isArray(b.party)||!Array.isArray(b.enemies)||!Array.isArray(b.acted)||b.party.length<1||b.party.length>4||b.enemies.length<1||b.enemies.length>4||b.party.some(u=>!HEROES[u.id])||[...b.party,...b.enemies].some(u=>!Number.isFinite(u.hp)||!Number.isFinite(u.maxHp)||u.maxHp<=0||u.hp<0||u.hp>u.maxHp||!u.status||typeof u.status!=='object'))throw Error('Invalid battle snapshot');
     if(!Number.isInteger(b.round)||b.round<1||b.round>10000||!Array.isArray(b.reserve)||!Array.isArray(b.plans)||!b.supplies||!Array.isArray(b.log)||!Array.isArray(b.events))throw Error('Invalid battle state');
     const encounter=ENCOUNTERS.find(e=>e.id===b.encounterId);
     if(b.quiz){const q=b.quiz.question;if(b.phase!=='command'||!q||typeof q.prompt!=='string'||!Array.isArray(q.choices)||![3,4].includes(q.choices.length)||q.choices.filter(c=>c.correct===true).length!==1||q.choices.some(c=>typeof c.text!=='string'||typeof c.correct!=='boolean')||![null,true,false].includes(b.quiz.answered))throw Error('Invalid saved question');}
     const wave=Number.isInteger(b.wave)?b.wave:0;if(wave<0||wave>=(encounter.waves?.length||1))throw Error('Invalid wave');const keys=encounter.waves?.[wave]||encounter.enemies;
+    if(encounter.expansion&&(typeof b.runId!=='string'||b.result==='victory'&&wave!==encounter.waves.length-1))throw Error('Invalid expansion victory');
     if(b.enemies.length!==keys.length||new Set([...b.party,...b.reserve].map(u=>u.id)).size!==b.party.length+b.reserve.length||!b.party.some(u=>u.id==='hero'))throw Error('Invalid combat roster');
     const state=u=>{if(!u.status||Array.isArray(u.status))throw Error('Invalid status');return Object.fromEntries(Object.entries(u.status).filter(([key])=>['poison','exposed','marked','silence','stun','chill','inspired','chargeBroken','chargeWeak'].includes(key)).map(([key,n])=>[key,['poison','exposed'].includes(key)?Math.min(3,number(n)):Number.isFinite(n)?(n>=1?1:n>=.5?.5:0):0]));};
     const extra=u=>{
-      const aura={};for(const [k,v] of Object.entries(u.aura||{})){if(!STATUS_NAMES[k]||!v||![v.power,v.turns,v.sourceAtk,v.order,v.born].every(Number.isFinite)||v.power<0||v.power>10||v.turns<1||v.turns>10||v.sourceAtk<0)throw Error('Invalid effect status');aura[k]={...v};}
+      const aura={};for(const [k,v] of Object.entries(u.aura||{})){if(!STATUS_NAMES[k]||!v||![v.power,v.turns,v.sourceAtk,v.order,v.born].every(Number.isFinite)||v.power<0||v.power>10||v.turns<1||v.turns>10||v.sourceAtk<0||(v.strength!==undefined&&(!Number.isFinite(v.strength)||v.strength<0)))throw Error('Invalid effect status');aura[k]={...v};}
       const cooldowns={};for(const [k,v] of Object.entries(u.cooldowns||{})){if(!SKILLS[k]||!Number.isInteger(v)||v<0||v>10)throw Error('Invalid cooldown');cooldowns[k]=v;}
       const remainders={};for(const [k,v] of Object.entries(u.remainders||{})){if(!Number.isFinite(v)||v<0||v>=1)throw Error('Invalid effect remainder');remainders[k]=v;}
       return {aura,cooldowns,remainders,shieldTurns:Math.min(10,number(u.shieldTurns))};
@@ -86,7 +88,7 @@ export function settleBattle(s) {
   const b=s.battle;if(!b||b.phase!=='result'||!b.result)return false;
   if(b.result==='victory'){
     const e=ENCOUNTERS.find(x=>x.id===b.encounterId),first=!s.completed.includes(e.id);grantDungeonTickets(s,e);s.gold+=e.expansion?(first?e.first_clear_coins:e.repeat_clear_coins):e.reward;s.wins++;
-    const gift=e.expansion&&first&&pack.progression.guaranteed_rewards[e.id];if(gift&&!s.roster.includes(gift))s.roster.push(gift);
+    if(e.expansion&&first)for(const gift of GUARANTEED_REWARDS[e.id]||[])if(!s.roster.includes(gift))s.roster.push(gift);
     if(!s.completed.includes(e.id)){s.completed.push(e.id);if(!e.expansion)s.level=Math.max(s.level,1+Math.floor(s.completed.filter(id=>!ENCOUNTERS.find(e=>e.id===id)?.expansion).length/2));}
   }
   s.battle=null;return true;

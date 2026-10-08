@@ -1,0 +1,29 @@
+ENGLISH QUEST — Audio sources and license record (2026-10-08)
+
+town.mp3 — “Port Town Loop” by beardalaxy
+Source: https://opengameart.org/content/port-town-loop
+Original: https://opengameart.org/sites/default/files/port_town_in_game.ogg
+License shown by author: CC0 1.0 Universal
+
+battle.mp3 — “Chiptune Battle Music” by pmiller
+Source: https://opengameart.org/content/chiptune-battle-music
+Original: https://opengameart.org/sites/default/files/battle_music_01-loop.ogg
+License shown by author: CC0 1.0 Universal
+Author's loop instruction: first playback begins at 0; subsequent loops begin around 7.5 seconds.
+
+boss.mp3 — “JRPG Epic Rock Battle Theme #1” by HydroGene
+Source: https://opengameart.org/content/jrpg-epic-rock-battle-theme-1
+Original: https://opengameart.org/sites/default/files/jrpg_battle_loop.mp3
+License shown by author: CC0 1.0 Universal
+
+License: https://creativecommons.org/publicdomain/zero/1.0/
+Legal code: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+CC0 permits copying, modification and redistribution, including commercial use.
+Official source pages were checked on 2026-10-08. No purchase or account was required.
+Processing: FFmpeg loudnorm target -19 LUFS / -2 dBTP, MP3 128 kbps stereo,
+48 kHz. Runtime uses decoded AudioBuffer loops and 8 ms zero-boundary ramps
+to avoid codec-edge clicks. Sources are cached, with only one BGM source active.
+
+Slash, magic, healing, impact, shield and victory effects are short original
+procedural Web Audio sounds in audio-manager.js; no sampled game melodies.
+Kenney RPG Audio was evaluated but is not used or shipped.
