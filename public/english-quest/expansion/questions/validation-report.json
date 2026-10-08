@@ -1,0 +1,96 @@
+{
+  "total": 600,
+  "sha256": "d928b903a7c6830570664c8931c02ace283deb90f0fa7c3156c86fbd50a93442",
+  "perLevel": {
+    "1": 100,
+    "2": 100,
+    "3": 100,
+    "4": 100,
+    "5": 100,
+    "6": 100
+  },
+  "perLevelAnswerPositions": {
+    "1": {
+      "0": 25,
+      "3": 25,
+      "1": 25,
+      "2": 25
+    },
+    "2": {
+      "2": 25,
+      "1": 25,
+      "3": 25,
+      "0": 25
+    },
+    "3": {
+      "0": 25,
+      "2": 25,
+      "1": 25,
+      "3": 25
+    },
+    "4": {
+      "1": 25,
+      "3": 25,
+      "0": 25,
+      "2": 25
+    },
+    "5": {
+      "3": 25,
+      "1": 25,
+      "0": 25,
+      "2": 25
+    },
+    "6": {
+      "1": 25,
+      "2": 25,
+      "0": 25,
+      "3": 25
+    }
+  },
+  "perLevelCategories": {
+    "1": {
+      "conversation": 20,
+      "grammar": 20,
+      "meaning/idioms": 20,
+      "vocabulary/context": 20,
+      "word order": 20
+    },
+    "2": {
+      "conversation": 20,
+      "grammar": 20,
+      "meaning/idioms": 20,
+      "vocabulary/context": 20,
+      "word order": 20
+    },
+    "3": {
+      "conversation": 20,
+      "grammar": 20,
+      "meaning/idioms": 20,
+      "vocabulary/context": 30,
+      "word order": 10
+    },
+    "4": {
+      "conversation": 20,
+      "grammar": 25,
+      "meaning/idioms": 20,
+      "vocabulary/context": 25,
+      "word order": 10
+    },
+    "5": {
+      "conversation": 20,
+      "grammar": 20,
+      "meaning/idioms": 20,
+      "vocabulary/context": 20,
+      "word order": 20
+    },
+    "6": {
+      "conversation": 20,
+      "grammar": 20,
+      "meaning/idioms": 20,
+      "vocabulary/context": 20,
+      "word order": 20
+    }
+  },
+  "errors": [],
+  "existingCorpusComparison": "not supplied"
+}
