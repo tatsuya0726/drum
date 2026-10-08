@@ -47,3 +47,13 @@ Chrome decoded all three stereo tracks at 48 kHz: town 30.743229 s; battle 152 s
 ## Release handling
 
 The final image registration and publishing were explicitly approved. Recheck remote main, preserve any parallel changes, run tests/build on the resulting tree, and verify CI/Pages for the exact published commit. Existing save keys are preserved; v1 is backed up verbatim before upgrading to v2, and malformed saves or failed writes do not overwrite the previous valid state. Physical-phone sound quality remains untested, as disclosed before approval.
+
+## Publication result
+
+Published commit: `91fe429fb915ee7fe27fafa4126b26117b69741b`. Main was still at the verified base immediately before the normal fast-forward push. No force push or other-app edit occurred. GitHub Actions run [37719692971](https://github.com/tatsuya0726/drum/actions/runs/37719692971) completed successfully for that exact SHA: npm ci, tests, build, artifact upload and Pages deployment all succeeded.
+
+Live HTTP checks downloaded 47 files (40 final WebPs, three BGM tracks, primary JS and question/manifest data): every response was 200 and every normalized text or binary hash matched the final tree. See `qa/english-quest/live-assets.json`.
+
+Live Chrome UI verified the old mid-battle party/HP survived migration, new BGM controls appeared, master audio and independent BGM mute toggled, legacy combat finished correctly, and the new grass entrance encounter completed with four allies versus two enemies. One earned-ticket summon changed tickets 5→4 and added メブキリュウ; reload preserved exactly one draw and the same saved result. The new dungeon's first clear changed tickets 4→5 and stamps 0→1; another reload kept those values, with no duplicate reward. Live QA advanced the existing test adventure to Lv2 / one new dungeon cleared; initial master OFF and system motion preferences were restored.
+
+The live browser retained old module cache until expiry, then displayed the new version after reload. During this live session its viewport override was ignored (actual sizes remained 2048×983 / 2048×927), so live screenshots are desktop evidence only. Compact portrait/landscape coverage is the previously verified five-size local run of the same deployed code. A physical mobile browser and subjective audio listening were not available. This distinction is intentional; no desktop screenshot is labeled as a successful mobile viewport check.
