@@ -14,7 +14,13 @@
     "star-serpent": "expansion/star-serpent.webp",
     "worldseed_deer": "expansion/worldseed_deer.webp",
     "night_library": "expansion/night_library.webp",
-    "eclipse_mantis": "expansion/eclipse_mantis.webp"
+    "eclipse_mantis": "expansion/eclipse_mantis.webp",
+    "ember_mole": "expansion/ember_mole.webp",
+    "dew_slime": "expansion/dew_slime.webp",
+    "leaf_mouse": "expansion/leaf_mouse.webp",
+    "pond_nurse": "expansion/pond_nurse.webp",
+    "mushroom-alchemist": "expansion/mushroom-alchemist.webp",
+    "comet_cat": "expansion/comet_cat.webp"
   },
   "enemies": {
     "eclipse_wyrm": "expansion/eclipse_wyrm.webp",
