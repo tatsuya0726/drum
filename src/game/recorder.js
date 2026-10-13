@@ -1,6 +1,7 @@
 // マイク録音: 採点用の生の音 (PCM) と、聞き返し用の音声ファイルを同時に取る
 
 const MIME_CANDIDATES = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus'];
+const VIDEO_MIME_CANDIDATES = ['video/mp4;codecs=avc1,mp4a', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
 
 export class TakeRecorder {
   /** @param {AudioContext} ctx  @param {AudioNode} clickBus メトロノームの出力 */
@@ -15,14 +16,20 @@ export class TakeRecorder {
     return !!this.stream;
   }
 
-  /** マイクを開く。headphones=false のときはスピーカーの音を消すエコー除去を使う */
-  async open({ headphones }) {
-    const mode = headphones ? 'headphones' : 'speaker';
+  /**
+   * マイク (録画モードならカメラも) を開く。headphones=false のときはスピーカーの音を消すエコー除去を使う
+   * @param {{ headphones: boolean, video?: boolean, facing?: 'user' | 'environment' }} opts
+   */
+  async open({ headphones, video = false, facing = 'user' }) {
+    const mode = `${headphones ? 'headphones' : 'speaker'}:${video ? facing : 'audio'}`;
     if (this.stream && this.mode === mode) return;
     this.close();
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: !headphones, noiseSuppression: false, autoGainControl: false },
+      video: video ? { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } : false,
     });
+    this.videoTrack = this.stream.getVideoTracks()[0] ?? null;
+    this.facing = facing;
     this.mode = mode;
     this.source = this.ctx.createMediaStreamSource(this.stream);
     this.recDest = this.ctx.createMediaStreamDestination();
@@ -78,10 +85,21 @@ export class TakeRecorder {
     this.source.connect(this.node);
     this.node.connect(sink);
 
-    // 聞き返し用の音声ファイル
-    const mime = MIME_CANDIDATES.find((m) => window.MediaRecorder?.isTypeSupported?.(m)) ?? '';
-    this.media = new MediaRecorder(this.recDest.stream, mime ? { mimeType: mime } : undefined);
+    // 聞き返し用のファイル (録画モードならカメラの映像 + 録音した音)
+    this.isVideo = !!this.videoTrack;
+    const candidates = this.isVideo ? VIDEO_MIME_CANDIDATES : MIME_CANDIDATES;
+    const mime = candidates.find((m) => window.MediaRecorder?.isTypeSupported?.(m)) ?? '';
+    const stream = this.isVideo ? new MediaStream([this.videoTrack, ...this.recDest.stream.getAudioTracks()]) : this.recDest.stream;
+    const opts = {};
+    if (mime) opts.mimeType = mime;
+    if (this.isVideo) opts.videoBitsPerSecond = 2_500_000;
+    this.media = new MediaRecorder(stream, opts);
     this.media.ondataavailable = (e) => e.data.size && this.chunks.push(e.data);
+    // ファイルの 0 秒が音声の時計のどこに当たるか (比較再生で映像と手本を合わせるのに使う)
+    this.mediaStart = this.ctx.currentTime;
+    this.media.onstart = () => {
+      this.mediaStart = this.ctx.currentTime;
+    };
     this.media.start();
   }
 
@@ -109,10 +127,12 @@ export class TakeRecorder {
     });
     const pcm = new Float32Array(cursor);
     for (const c of placed) pcm.set(c.data, c.at);
-    const mime = this.media.mimeType || 'audio/webm';
+    const mime = this.media.mimeType || (this.isVideo ? 'video/webm' : 'audio/webm');
     return {
       blob: new Blob(this.chunks, { type: mime }),
       mime,
+      isVideo: this.isVideo,
+      mediaStart: this.mediaStart,
       pcm,
       sampleRate: sr,
       pcmStart: start,

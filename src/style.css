@@ -2345,3 +2345,143 @@ body[data-view='home'] .viewer {
 .book-body {
   padding-bottom: 12px;
 }
+
+/* 録画モード */
+.rec-preview {
+  position: fixed;
+  top: 72px;
+  right: 12px;
+  width: min(34vw, 240px);
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 2px solid #ef4444;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background: #000;
+  z-index: 46;
+}
+.rec-preview.hidden {
+  display: none;
+}
+.rec-preview.mirror {
+  transform: scaleX(-1);
+}
+.rec-overlay .rec-box {
+  position: relative;
+  z-index: 1;
+}
+.big-btn.record .rec-cam {
+  width: 28px;
+  height: 28px;
+}
+.cmp {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: #0b0d13;
+  color: #f4f5f8;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+.cmp.hidden {
+  display: none;
+}
+.cmp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.cmp-head b {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cmp-stage {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+.cmp-stage canvas {
+  max-width: 100%;
+  max-height: 62vh;
+  border-radius: 12px;
+  background: #000;
+}
+.cmp-stage video {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.cmp-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cmp-bar input[type='range'] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+.cmp-time {
+  font-size: 12px;
+  color: #a6abb8;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cmp-opts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  font-size: 13px;
+}
+.cmp-rates {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: #1b1f2b;
+}
+.cmp-rates button {
+  height: 30px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #a6abb8;
+  font-weight: 700;
+  font-size: 12px;
+}
+.cmp-rates button[aria-pressed='true'] {
+  background: #2b3142;
+  color: #fff;
+}
+.cmp .chk {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.cmp-nudge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #a6abb8;
+}
+.cmp-nudge input {
+  width: 110px;
+  accent-color: var(--accent);
+}
+.cmp-note {
+  color: #8a90a0;
+  margin: 0;
+}
+body.modal-open {
+  overflow: hidden;
+}

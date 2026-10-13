@@ -27,6 +27,7 @@
       <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></symbol>
       <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></symbol>
       <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" /></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h10A1.5 1.5 0 0 1 16 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 3 16.5v-9zM16 10l5-3v10l-5-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></symbol>
       <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></symbol>
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></symbol>
       <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
@@ -129,7 +130,7 @@
             <div class="pv-buttons">
               <button class="nav-btn" id="pv-prev" title="前のフレーズ" aria-label="前のフレーズ"><svg class="ic"><use href="#i-chev-left" /></svg></button>
               <button class="big-btn listen" id="pv-listen" title="手本を聴く" aria-label="手本を聴く"><svg class="ic"><use href="#i-play" /></svg></button>
-              <button class="big-btn record" id="pv-record" title="録音する" aria-label="録音する"><span class="rec-dot"></span></button>
+              <button class="big-btn record" id="pv-record" title="録音する" aria-label="録音する"><span class="rec-dot"></span><svg class="ic rec-cam hidden"><use href="#i-camera" /></svg></button>
               <button class="nav-btn" id="pv-next" title="次のフレーズ" aria-label="次のフレーズ"><svg class="ic"><use href="#i-chev-right" /></svg></button>
             </div>
             <div class="pv-pos" id="pv-pos"></div>
@@ -166,6 +167,10 @@
               <label class="row switch-row sub-row"><span>メトロノームも一緒に録音する</span><input type="checkbox" class="switch" id="pv-click-rec" /></label>
               <label class="row switch-row"><span>録音中も手本のドラムを鳴らす</span><input type="checkbox" class="switch" id="pv-guide" /></label>
               <label class="row switch-row"><span>イヤホン・ヘッドホンを使う</span><input type="checkbox" class="switch" id="pv-headphones" /></label>
+              <label class="row switch-row"><span>録画モード (カメラで撮って手本と比べる)</span><input type="checkbox" class="switch" id="pv-video" /></label>
+              <label class="row sub-row"><span>カメラ</span>
+                <select id="pv-facing"><option value="user">前のカメラ (自撮り)</option><option value="environment">後ろのカメラ</option></select>
+              </label>
               <p class="note">録音前に1小節のカウントが入ります。スピーカーで鳴らす場合は、メトロノームや手本の音を拾わないようにエコー除去を使います。採点がずれるときは<button class="link-btn" id="pv-calibrate">タイミング補正</button>をしてください。</p>
             </div>
           </div>
@@ -181,6 +186,7 @@
         </div>
 
         <div class="rec-overlay hidden" id="pv-rec-overlay">
+          <video class="rec-preview hidden" id="pv-rec-preview" muted playsinline autoplay></video>
           <div class="rec-box">
             <span class="rec-dot big"></span>
             <div class="rec-count" id="pv-rec-count">1</div>
@@ -386,6 +392,30 @@
         <button class="btn btn-ghost" id="ms-tap">タップ</button>
       </div>
       <button class="big-btn ms-start" id="ms-start"><svg class="ic"><use href="#i-play" /></svg><span>スタート</span></button>
+    </div>
+
+    <div class="cmp hidden" id="cmp" role="dialog" aria-label="録画の比較">
+      <div class="cmp-head">
+        <b id="cmp-title"></b>
+        <button class="icon-btn" id="cmp-close" aria-label="閉じる"><svg class="ic"><use href="#i-close" /></svg></button>
+      </div>
+      <div class="cmp-stage"><canvas id="cmp-canvas"></canvas><video id="cmp-video" playsinline preload="auto"></video></div>
+      <div class="cmp-bar">
+        <button class="round-btn" id="cmp-play" aria-label="再生"><svg class="ic"><use href="#i-play" /></svg></button>
+        <input id="cmp-seek" type="range" min="0" max="1000" value="0" aria-label="再生位置" />
+        <span class="cmp-time" id="cmp-time">0:00</span>
+      </div>
+      <div class="cmp-opts">
+        <div class="cmp-rates" id="cmp-rates" role="group" aria-label="速さ">
+          <button data-rate="0.5" aria-pressed="false">0.5×</button><button data-rate="0.75" aria-pressed="false">0.75×</button><button data-rate="1" aria-pressed="true">1×</button>
+        </div>
+        <label class="chk"><input type="checkbox" id="cmp-ref" checked /> 手本の音</label>
+        <label class="chk"><input type="checkbox" id="cmp-self" checked /> 自分の音</label>
+        <label class="chk"><input type="checkbox" id="cmp-overlay" checked /> 譜面とずれ</label>
+        <label class="cmp-nudge">映像の位置合わせ <input id="cmp-nudge" type="range" min="-300" max="300" step="10" value="0" /> <span id="cmp-nudge-val">0ms</span></label>
+        <button class="btn btn-accent" id="cmp-save">合成した動画を保存</button>
+      </div>
+      <p class="note cmp-note">上に手本の譜面と再生位置、下に「白い線 = 手本」「丸 = 自分が叩いた位置」と何ms ずれたかを表示します。手本の音は映像に合わせて鳴ります。</p>
     </div>
 
     <div class="toast hidden" id="toast"></div>

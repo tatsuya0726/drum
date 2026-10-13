@@ -84,8 +84,9 @@ function buildVoice(measure, timeSig, which) {
  * 譜面全体を描画する
  * @returns {{ boxes: Array<{x,y,w,h}>, cursorX: (measure, tick) => number }} 座標はコンテナ内 px
  */
-export function renderScore(container, score, { width } = {}) {
-  container.innerHTML = '';
+export function renderScore(container, score, { width, canvas } = {}) {
+  // canvas を渡すとキャンバスに描く (映像に重ねるとき用。画像にした SVG では譜面の字体が使えないため)
+  if (!canvas) container.innerHTML = '';
   const W = Math.max(320, width ?? container.clientWidth);
   const ts = score.timeSig;
   const perLine = Math.max(1, Math.min(score.measures.length, W >= 1000 ? 4 : W >= 640 ? 3 : W >= 420 ? 2 : 1));
@@ -95,9 +96,15 @@ export function renderScore(container, score, { width } = {}) {
   const lines = Math.ceil(score.measures.length / perLine) || 1;
   const svgH = lines * lineH + 20;
 
-  const renderer = new Renderer(container, Renderer.Backends.SVG);
+  const renderer = canvas ? new Renderer(canvas, Renderer.Backends.CANVAS) : new Renderer(container, Renderer.Backends.SVG);
   renderer.resize(W, svgH);
   const ctx = renderer.getContext();
+  if (canvas) {
+    ctx.save();
+    ctx.setFillStyle('#ffffff');
+    ctx.fillRect(0, 0, W, svgH);
+    ctx.restore();
+  }
   ctx.setFillStyle('#151821');
   ctx.setStrokeStyle('#151821');
 

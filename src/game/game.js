@@ -26,9 +26,9 @@ const starStr = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
 
 function loadPrefs() {
   try {
-    return { loops: 2, metronome: true, clickInRec: false, guide: false, headphones: false, sensitivity: 0.5, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') };
+    return { loops: 2, metronome: true, clickInRec: false, guide: false, headphones: false, sensitivity: 0.5, video: false, facing: 'user', ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') };
   } catch {
-    return { loops: 2, metronome: true, clickInRec: false, guide: false, headphones: false, sensitivity: 0.5 };
+    return { loops: 2, metronome: true, clickInRec: false, guide: false, headphones: false, sensitivity: 0.5, video: false, facing: 'user' };
   }
 }
 
@@ -533,7 +533,20 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     $('pv-click-rec').disabled = !prefs.metronome;
     $('pv-guide').checked = prefs.guide;
     $('pv-headphones').checked = prefs.headphones;
+    $('pv-video').checked = prefs.video;
+    $('pv-facing').value = prefs.facing;
+    $('pv-facing').disabled = !prefs.video;
+    updateButtons();
   }
+  $('pv-video').addEventListener('change', (e) => {
+    prefs.video = e.target.checked;
+    savePrefs();
+    syncPrefsUI();
+  });
+  $('pv-facing').addEventListener('change', (e) => {
+    prefs.facing = e.target.value;
+    savePrefs();
+  });
   $('pv-loops').addEventListener('change', (e) => {
     prefs.loops = Number(e.target.value);
     savePrefs();
@@ -649,8 +662,11 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     $('pv-listen').setAttribute('aria-label', listening ? '止める' : '手本を聴く');
     $('pv-listen').title = listening ? '止める' : '手本を聴く';
     $('pv-record').classList.toggle('active', recording);
-    $('pv-record').setAttribute('aria-label', recording ? '録音をやめる' : '録音する');
-    $('pv-record').title = recording ? '録音をやめる' : '録音する';
+    const what = prefs.video ? '録画' : '録音';
+    $('pv-record').setAttribute('aria-label', recording ? `${what}をやめる` : `${what}する`);
+    $('pv-record').title = recording ? `${what}をやめる` : `${what}する`;
+    $('pv-record').querySelector('.rec-dot').classList.toggle('hidden', prefs.video && !recording);
+    $('pv-record').querySelector('.rec-cam').classList.toggle('hidden', !prefs.video || recording);
     if (g.phrase) renderNav();
     $('pv-listen').disabled = g.mode === 'record' || g.mode === 'calibrate';
   }
@@ -707,7 +723,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     player.ensureContext();
     player.resume();
     g.recorder ??= new TakeRecorder(player.ctx, player.synth.clickBus);
-    await g.recorder.open({ headphones: prefs.headphones });
+    await g.recorder.open({ headphones: prefs.headphones, video: prefs.video, facing: prefs.facing });
   }
 
   let recordJob = null;
@@ -722,7 +738,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     try {
       await ensureRecorder();
     } catch (err) {
-      toast('マイクを使えませんでした。ブラウザのマイクの許可を確認してください', 6000);
+      toast(prefs.video ? 'カメラかマイクを使えませんでした。ブラウザの許可を確認してください' : 'マイクを使えませんでした。ブラウザのマイクの許可を確認してください', 6000);
       console.error(err);
       return;
     }
@@ -750,6 +766,13 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     g.mode = 'record';
     updateButtons();
     $('pv-rec-overlay').classList.remove('hidden');
+    const preview = $('pv-rec-preview');
+    preview.classList.toggle('hidden', !g.recorder.videoTrack);
+    preview.classList.toggle('mirror', g.recorder.facing === 'user');
+    if (g.recorder.videoTrack) {
+      preview.srcObject = new MediaStream([g.recorder.videoTrack]);
+      preview.play().catch(() => {});
+    }
 
     const spt = 60 / (g.bpm * PPQ);
     const mt = measureTicks(phrase.timeSig);
@@ -773,10 +796,17 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     requestAnimationFrame(wait);
   }
 
+  function hidePreview() {
+    const preview = $('pv-rec-preview');
+    preview.srcObject = null;
+    preview.classList.add('hidden');
+  }
+
   function cancelRecording() {
     if (recordJob) recordJob.cancelled = true;
     recordJob = null;
     $('pv-rec-overlay').classList.add('hidden');
+    hidePreview();
     if (g.recorder?.media?.state === 'recording') g.recorder.stop().catch(() => {});
   }
 
@@ -787,6 +817,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     g.mode = 'idle';
     updateButtons();
     $('pv-rec-overlay').classList.add('hidden');
+    hidePreview();
     const rec = await g.recorder.stop();
     const lat = latency();
     const onsets = detectOnsets(rec.pcm, rec.sampleRate, { sensitivity: prefs.sensitivity });
@@ -816,6 +847,8 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       guide: prefs.guide,
       blob: rec.blob,
       mime: rec.mime,
+      video: rec.isVideo,
+      timeline: rec.isVideo ? videoTimeline(job, result, hits, rec.mediaStart) : undefined,
     };
     try {
       await saveTake(take);
@@ -830,6 +863,50 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     drawJudgments();
     renderPracticeHeader();
     await refreshHistory();
+    if (take.video) openCompareFor(take);
+  }
+
+  /** 録画の比較再生に使う時刻表 (どれも録画ファイルの先頭からの秒数) */
+  function videoTimeline(job, result, hits, mediaStart) {
+    const phrase = job.phrase;
+    const spt = 60 / (job.bpm * PPQ);
+    const mt = measureTicks(phrase.timeSig);
+    const M = phrase.measures.length;
+    const notes = [];
+    for (let l = 0; l < job.loops; l++) {
+      phrase.measures.forEach((m, mi) => {
+        for (const n of m.notes) notes.push({ t: job.start + ((l * M + mi) * mt + n.tick) * spt - mediaStart, inst: n.inst, vel: n.vel ?? 1 });
+      });
+    }
+    notes.sort((a, b) => a.t - b.t);
+    const matched = result.judgments.filter((j) => j.offset != null).map((j) => j.expected + j.offset);
+    return {
+      notes,
+      judgments: result.judgments.map((j) => ({ t: j.expected - mediaStart, offset: j.offset, grade: j.grade })),
+      extra: hits.filter((h) => !matched.some((m) => Math.abs(m - h.time) < 1e-6)).map((h) => h.time - mediaStart),
+      start: job.start - mediaStart,
+      end: job.end - mediaStart,
+      phraseDur: M * mt * spt,
+      loops: job.loops,
+      bpm: job.bpm,
+      countIn: phrase.timeSig.beats,
+      // 後でフレーズを直しても、撮ったときの譜面で比べられるようにしておく
+      phrase: { title: phrase.title, timeSig: phrase.timeSig, measures: phrase.measures },
+    };
+  }
+
+  let compareModule = null;
+  async function openCompareFor(take) {
+    try {
+      compareModule ??= await import('./compare.js');
+      notationModule ??= await import('../notation/render.js');
+      await notationModule.loadNotationFonts();
+      const phrase = take.timeline?.phrase ?? g.phrase;
+      await compareModule.openCompare({ take, phrase, player, renderScore: notationModule.renderScore });
+    } catch (err) {
+      console.error(err);
+      toast(`比較画面を開けませんでした: ${err.message}`, 6000);
+    }
   }
 
   function showResult(r, take, { newBest, levelUp, xp }) {
@@ -948,6 +1025,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       item.innerHTML = `
         <span class="rank rank-${t.rank}">${t.rank}</span>
         <span class="take-main"><b>${t.score}点</b> <small>${t.bpm}BPM · ${t.loops}回 · ${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${t.withClick ? ' · クリック入り' : ''}</small></span>
+        ${t.video && t.timeline ? `<button class="tool" data-cmp-take="${t.id}" title="映像で手本と比べる"><svg class="ic"><use href="#i-camera" /></svg></button>` : ''}
         <button class="tool" data-play-take="${t.id}" title="聞く">▶</button>
         <button class="tool danger" data-del-take="${t.id}" title="削除"><svg class="ic"><use href="#i-trash" /></svg></button>`;
       list.appendChild(item);
@@ -955,6 +1033,12 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   }
 
   $('pv-takes').addEventListener('click', async (e) => {
+    const cmp = e.target.closest('[data-cmp-take]');
+    if (cmp) {
+      const t = g.takes.find((x) => x.id === cmp.dataset.cmpTake);
+      if (t) openCompareFor(t);
+      return;
+    }
     const play = e.target.closest('[data-play-take]');
     if (play) {
       const t = g.takes.find((x) => x.id === play.dataset.playTake);
