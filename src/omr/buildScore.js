@@ -54,7 +54,10 @@ export function buildScore(pages, opts = {}) {
         const has32 = beams.some((b) => b >= 3);
         // 「3」「5」の記号がある小節では連符の位置も候補にする。
         // 記号がなくても 1小節の音の数が「拍数 × 5」なら 5連符とみなす (記号を省いた教本向け)
-        const quintuplets = beatUnit === 4 && (m.quintuplets > (m.triplets ?? 0) || (!m.triplets && !m.quintuplets && xs.length === beats * 5));
+        // (記号なしは、全部の音が 16分の連桁 (2本) のときだけ。32分が混ざる 5つ割りは普通のリズム)
+        const all16 = beams.length > 0 && beams.every((b) => b === 2);
+        const quintuplets =
+          beatUnit === 4 && ((m.quintuplets > (m.triplets ?? 0) && xs.length >= 5) || (!m.triplets && !m.quintuplets && xs.length === beats * 5 && all16));
         const triplets = beatUnit === 4 && !quintuplets && m.triplets > 0;
         const fine = has32 || (!quintuplets && xs.length > slots);
         let spb = slotsPerBeat * (fine ? 2 : 1);
