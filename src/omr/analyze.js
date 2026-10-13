@@ -781,9 +781,15 @@ export function findTripletMarks(bin, w, h, staff) {
     const ry0 = Math.max(0, Math.floor(ya));
     const ry1 = Math.min(h - 1, Math.ceil(yb));
     if (ry1 <= ry0) continue;
-    for (const c of components(bin, w, { rx0, ry0, rx1, ry1 })) {
+    const comps = components(bin, w, { rx0, ry0, rx1, ry1 });
+    for (const c of comps) {
       if (c.h < space * 0.8 || c.h > space * 2.2 || c.w < space * 0.45 || c.w > space * 1.5 || c.w > c.h || c.w < c.h * 0.45) continue;
       if (c.y0 <= ry0 || c.y1 >= ry1) continue;
+      // 文字の並び (「Accent S.D.」の S など) の一部なら連符の数字ではない
+      const inWord = comps.some(
+        (o) => o !== c && o.h >= c.h * 0.5 && o.y1 > c.y0 && o.y0 < c.y1 && Math.max(o.x0 - c.x1, c.x0 - o.x1) < space * 0.9,
+      );
+      if (inWord) continue;
       const num = isThree(bin, w, c) ? 3 : isFive(bin, w, c) ? 5 : 0;
       if (num) marks.push({ x: (c.x0 + c.x1) / 2, y: (c.y0 + c.y1) / 2, num });
     }
