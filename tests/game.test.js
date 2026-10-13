@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { shiftMeasures, shiftLabel } from '../src/game/shift.js';
 import { detectOnsets } from '../src/game/onsets.js';
 import { estimateLatency, scoreTake } from '../src/game/scoring.js';
+import { PPQ } from '../src/drums.js';
+const T = PPQ / 48; // テストの数値は 4分音符=48 の単位で書く
 
 const ts = { beats: 4, beatUnit: 4 };
 const pat = (m, inst) => {
   const a = '.'.repeat(16).split('');
-  for (const n of m.notes) if (n.inst === inst) a[n.tick / 12] = 'x';
+  for (const n of m.notes) if (n.inst === inst) a[n.tick / (12 * T)] = 'x';
   return a.join('');
 };
 
@@ -18,37 +20,37 @@ describe('shiftMeasures', () => {
         grid: 4,
         notes: [
           { tick: 0, inst: 'kick' },
-          { tick: 48, inst: 'snare' },
-          { tick: 120, inst: 'kick' },
-          { tick: 144, inst: 'snare' },
-          { tick: 180, inst: 'kick' },
+          { tick: 48 * T, inst: 'snare' },
+          { tick: 120 * T, inst: 'kick' },
+          { tick: 144 * T, inst: 'snare' },
+          { tick: 180 * T, inst: 'kick' },
         ],
       },
     ],
   };
 
   it('rotates every note by a 16th', () => {
-    const m = shiftMeasures(phrase, 12)[0];
+    const m = shiftMeasures(phrase, 12 * T)[0];
     expect(pat(m, 'kick')).toBe('xx.........x....');
     expect(pat(m, 'snare')).toBe('.....x.......x..');
   });
 
   it('shifts only the chosen instruments', () => {
-    const m = shiftMeasures(phrase, -12, ['kick'])[0];
+    const m = shiftMeasures(phrase, -12 * T, ['kick'])[0];
     expect(pat(m, 'kick')).toBe('.........x....xx');
     expect(pat(m, 'snare')).toBe('....x.......x...');
   });
 
   it('wraps across measures of a 2-bar phrase', () => {
-    const two = { timeSig: ts, measures: [{ grid: 4, notes: [{ tick: 180, inst: 'kick' }] }, { grid: 4, notes: [{ tick: 180, inst: 'snare' }] }] };
-    const out = shiftMeasures(two, 12);
+    const two = { timeSig: ts, measures: [{ grid: 4, notes: [{ tick: 180 * T, inst: 'kick' }] }, { grid: 4, notes: [{ tick: 180 * T, inst: 'snare' }] }] };
+    const out = shiftMeasures(two, 12 * T);
     expect(out[1].notes).toEqual([{ tick: 0, inst: 'kick' }]);
     expect(out[0].notes).toEqual([{ tick: 0, inst: 'snare' }]);
   });
 
   it('describes the shift', () => {
-    expect(shiftLabel(12, 'バスドラム')).toBe('バスドラム 16分×1 後ろ');
-    expect(shiftLabel(-24)).toBe('16分×2 前');
+    expect(shiftLabel(12 * T, 'バスドラム')).toBe('バスドラム 16分×1 後ろ');
+    expect(shiftLabel(-24 * T)).toBe('16分×2 前');
   });
 });
 
@@ -114,7 +116,7 @@ describe('phrase packs', () => {
   it('converts pattern strings to measures', () => {
     const m = patternsToMeasures({ snare: 'x.x.x.x.x.x.x.x.|xxxxxxxxxxxxxxxx', kick: 'x.......x.......' });
     expect(m).toHaveLength(2);
-    expect(m[0].notes.filter((n) => n.inst === 'snare').map((n) => n.tick)).toEqual([0, 24, 48, 72, 96, 120, 144, 168]);
+    expect(m[0].notes.filter((n) => n.inst === 'snare').map((n) => n.tick / T)).toEqual([0, 24, 48, 72, 96, 120, 144, 168]);
     expect(m[1].notes).toHaveLength(16);
     expect(m[0].grid).toBe(4);
   });
@@ -122,7 +124,7 @@ describe('phrase packs', () => {
   it('supports triplet grids', () => {
     const m = patternsToMeasures({ snare: 'x.xx.xx.xx.x' });
     expect(m[0].grid).toBe(3);
-    expect(m[0].notes.map((n) => n.tick)).toEqual([0, 32, 48, 80, 96, 128, 144, 176]);
+    expect(m[0].notes.map((n) => n.tick / T)).toEqual([0, 32, 48, 80, 96, 128, 144, 176]);
   });
 
   it('round-trips a pack', () => {
@@ -134,5 +136,16 @@ describe('phrase packs', () => {
 
   it('rejects other files', () => {
     expect(() => parsePack({ hello: 1 })).toThrow();
+  });
+});
+
+describe('tick unit migration', () => {
+  it('converts packs written with the old unit (quarter = 48)', () => {
+    const [p] = parsePack({ format: 'drum-level-up-phrases', version: 1, phrases: [{ title: 'old', measures: [{ grid: 4, notes: [{ tick: 12, inst: 'snare' }, { tick: 16, inst: 'kick' }] }] }] });
+    expect(p.measures[0].notes.map((n) => n.tick)).toEqual([PPQ / 4, PPQ / 3]);
+  });
+  it('keeps packs already in the current unit', () => {
+    const [p] = parsePack({ format: 'drum-level-up-phrases', version: 1, ppq: PPQ, phrases: [{ title: 'new', measures: [{ grid: 4, notes: [{ tick: PPQ / 5, inst: 'snare' }] }] }] });
+    expect(p.measures[0].notes[0].tick).toBe(PPQ / 5);
   });
 });

@@ -1,5 +1,5 @@
 // ドラム上達ゲーム: フレーズ一覧 (ハブ) と練習画面 (テンポ・録音・採点・成長記録・ずらし)
-import { INSTRUMENTS, instrumentById } from '../drums.js';
+import { INSTRUMENTS, PPQ, instrumentById } from '../drums.js';
 import { measureTicks } from '../audio/sequencer.js';
 import { CATEGORIES, PRESETS, presetById } from './presets.js';
 import { shiftLabel, shiftMeasures } from './shift.js';
@@ -45,7 +45,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
 
   const g = {
     phrase: null, // 元のフレーズ
-    shift: { ticks: 0, target: 'all', unit: 12 },
+    shift: { ticks: 0, target: 'all', unit: PPQ / 4 },
     bpm: 100,
     mode: 'idle', // idle | listen | record | calibrate
     recorder: null,
@@ -370,7 +370,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     }
     stopAll();
     g.phrase = p;
-    g.shift = { ticks: 0, target: 'all', unit: g.shift.unit ?? 12 };
+    g.shift = { ticks: 0, target: 'all', unit: g.shift.unit ?? PPQ / 4 };
     g.lastResult = null;
     let bpm = p.bpm ?? 100;
     try {
@@ -751,7 +751,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     updateButtons();
     $('pv-rec-overlay').classList.remove('hidden');
 
-    const spt = 60 / (g.bpm * 48);
+    const spt = 60 / (g.bpm * PPQ);
     const mt = measureTicks(phrase.timeSig);
     const start = player.startTime + mt * spt; // カウントインの後
     const one = expectedOnsets(phrase);
@@ -1049,7 +1049,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       }
       if (g.mode === 'record') {
         const c = $('pv-rec-count');
-        if (pos && pos.measure === -1) c.textContent = String(Math.floor(pos.tick / 48) + 1);
+        if (pos && pos.measure === -1) c.textContent = String(Math.floor(pos.tick / PPQ) + 1);
         else if (pos) c.textContent = `${Math.floor(pos.measure / g.phrase.measures.length) + 1} / ${prefs.loops}`;
       }
     }

@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import { PNG } from 'pngjs';
 import { analyzePage } from '../src/omr/analyze.js';
 import { buildScore } from '../src/omr/buildScore.js';
+import { PPQ } from '../src/drums.js';
+const T = PPQ / 48; // テストの数値は 4分音符=48 の単位で書く
 
 // samples/groove.ly の内容 (16分グリッド, x = 音あり)
 const E = 'x.x.x.x.x.x.x.x.';
@@ -23,7 +25,7 @@ function toPatterns(measure) {
   const out = {};
   for (const n of measure.notes) {
     out[n.inst] ??= '.'.repeat(16).split('');
-    out[n.inst][n.tick / 12] = 'x';
+    out[n.inst][n.tick / (12 * T)] = 'x';
   }
   return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v.join('')]));
 }
@@ -122,7 +124,7 @@ describe('two-column exercise page', () => {
 describe('16th and 32nd notes', () => {
   const png = PNG.sync.read(fs.readFileSync(new URL('./fixtures/thirtysecond-200.png', import.meta.url)));
   const score = buildScore([analyzePage(png.data, png.width, png.height)]);
-  const ticks = (m, inst) => m.notes.filter((n) => n.inst === inst).map((n) => n.tick / 6); // 32分 = 1
+  const ticks = (m, inst) => m.notes.filter((n) => n.inst === inst).map((n) => n.tick / (6 * T)); // 32分 = 1
   it('measure 1', () => {
     const m = score.measures[0];
     expect(ticks(m, 'hhc')).toEqual([0, 2, 3, 4, 24]);
@@ -137,11 +139,11 @@ describe('16th and 32nd notes', () => {
   });
 });
 
-// 3連符 (samples/triplets.ly)。3連8分 = 16tick、3連16分 = 8tick
+// 3連符 (samples/triplets.ly)。数値は 4分音符=48 の単位 (3連8分 = 16、3連16分 = 8)
 describe.each([200, 160])('triplets @%idpi', (dpi) => {
   const png = PNG.sync.read(fs.readFileSync(new URL(`./fixtures/triplets-${dpi}.png`, import.meta.url)));
   const score = buildScore([analyzePage(png.data, png.width, png.height)]);
-  const ticks = (m, inst) => m.notes.filter((n) => n.inst === inst).map((n) => n.tick);
+  const ticks = (m, inst) => m.notes.filter((n) => n.inst === inst).map((n) => n.tick / T);
   it('reads 4 measures', () => expect(score.measures.length).toBe(4));
   it('measure 1: triplet 8ths', () => {
     const m = score.measures[0];

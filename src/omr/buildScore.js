@@ -1,4 +1,4 @@
-import { PPQ, instrumentFor } from '../drums.js';
+import { PPQ, gridForTicks, instrumentFor } from '../drums.js';
 import { assignSlots, clusterOnsets } from './rhythm.js';
 
 function median(arr, fallback) {
@@ -99,12 +99,7 @@ export function buildScore(pages, opts = {}) {
         });
         notes.sort((a, b) => a.tick - b.tick);
         // 編集用のマス目: 3連符だけの小節は 3連のマス目にする
-        let grid = 4;
-        if (notes.some((n) => n.tick % 12)) {
-          if (notes.every((n) => n.tick % 16 === 0)) grid = 3;
-          else if (notes.every((n) => n.tick % 8 === 0)) grid = 6;
-          else if (notes.every((n) => n.tick % 6 === 0)) grid = 8;
-        }
+        const grid = gridForTicks(notes.map((n) => n.tick));
         measures.push({
           notes,
           grid,

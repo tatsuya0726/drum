@@ -6,6 +6,7 @@ export const GRIDS = [
   { value: 4, label: '16分' },
   { value: 3, label: '3連8分' },
   { value: 6, label: '3連16分' },
+  { value: 5, label: '5連16分' },
   { value: 8, label: '32分' },
 ];
 

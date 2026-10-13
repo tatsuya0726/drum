@@ -3,7 +3,8 @@
 // フレーズは measures (tick 単位) か patterns (楽器ごとの文字列, "x" = 叩く, "|" = 小節線) で書ける
 //   { title, bpm, timeSig: { beats, beatUnit }, steps: 16, patterns: { snare: 'x.x.x.x.|...', kick: '...' } }
 
-import { INSTRUMENT_IDS, PPQ } from '../drums.js';
+import { INSTRUMENT_IDS, LEGACY_PPQ, PPQ } from '../drums.js';
+import { migrateMeasures } from '../library.js';
 
 export const PACK_FORMAT = 'drum-level-up-phrases';
 
@@ -40,7 +41,8 @@ export function parsePack(json) {
   if (data?.format !== PACK_FORMAT || !Array.isArray(data.phrases)) throw new Error('フレーズ集のファイルではありません');
   return data.phrases.map((p, i) => {
     const timeSig = p.timeSig ?? { beats: 4, beatUnit: 4 };
-    const measures = p.measures ?? patternsToMeasures(p.patterns ?? {}, timeSig, p.steps);
+    // measures の tick はファイルの ppq (書かれていなければ以前の 48) から今の単位に直す
+    const measures = p.measures ? migrateMeasures(p.measures, data.ppq ?? LEGACY_PPQ) : patternsToMeasures(p.patterns ?? {}, timeSig, p.steps);
     if (!measures.length || !measures.some((m) => m.notes.length)) throw new Error(`${i + 1}番目のフレーズに音符がありません`);
     return {
       title: String(p.title ?? `フレーズ ${i + 1}`),
@@ -59,6 +61,7 @@ export function makePack(name, docs) {
   return {
     format: PACK_FORMAT,
     version: 1,
+    ppq: PPQ,
     name,
     phrases: docs.map((d) => ({ title: d.title, group: d.group, section: d.section, kind: d.kind, bpm: d.bpm, timeSig: d.timeSig, measures: d.measures })),
   };

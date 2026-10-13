@@ -1,7 +1,9 @@
+import { PPQ, gridForTicks } from '../drums.js';
+
 // 練習用フレーズ集。パターン文字列は 1小節ごと ("|" で区切る)、x = 叩く、g = ゴーストノート (弱く)。
 // 1小節の文字数でマス目が決まる: 16 = 16分、12 = 3連8分、24 = 3連16分、32 = 32分
 
-const BAR = 192; // 4/4 の1小節の tick 数
+const BAR = PPQ * 4; // 4/4 の1小節の tick 数
 
 const P = (spec) => {
   const bars = Math.max(...Object.values(spec).map((s) => s.split('|').length));
@@ -17,9 +19,7 @@ const P = (spec) => {
   for (const m of measures) {
     m.notes.sort((a, b) => a.tick - b.tick);
     // 編集用のマス目は一番細かい音に合わせる
-    if (m.notes.some((n) => n.tick % 12)) {
-      m.grid = m.notes.every((n) => n.tick % 16 === 0) ? 3 : m.notes.every((n) => n.tick % 8 === 0) ? 6 : 8;
-    }
+    m.grid = gridForTicks(m.notes.map((n) => n.tick));
   }
   return measures;
 };

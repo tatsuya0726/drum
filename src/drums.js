@@ -4,7 +4,17 @@
 //    2: 第4線 (D5)     3: 第3間 (C5)          4: 第3線 (B4)  5: 第2間 (A4)
 //    6: 第2線 (G4)     7: 第1間 (F4)          8: 第1線 (E4)  9: 下の間 (D4)
 
-export const PPQ = 48; // 4分音符あたりの tick 数 (16分=12, 3連8分=16, 3連16分=8)
+// 4分音符あたりの tick 数。16分=60, 3連8分=80, 3連16分=40, 5連16分=48, 32分=30 (どれも割り切れる値)
+// 以前は 48 だった。古いデータは ppq を見て読み込み時に換算する
+export const PPQ = 240;
+export const LEGACY_PPQ = 48;
+
+/** 小節内の音の位置から、編集用のマス目 (1拍あたりのマス数) を決める */
+export function gridForTicks(ticks) {
+  const fits = (div) => ticks.every((t) => t % (PPQ / div) === 0);
+  for (const div of [4, 3, 6, 5, 8]) if (fits(div)) return div === 4 ? 4 : div;
+  return 8;
+}
 
 export const INSTRUMENTS = [
   { id: 'crash', name: 'クラッシュ', short: 'CR', color: '#f59e0b' },

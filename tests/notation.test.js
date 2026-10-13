@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { voiceTokens } from '../src/notation/tokens.js';
+import { PPQ } from '../src/drums.js';
+const T = PPQ / 48;
 
 const ts = { beats: 4, beatUnit: 4 };
 const notes = (spec) =>
-  Object.entries(spec).flatMap(([inst, pattern]) => [...pattern].flatMap((c, i) => (c === 'x' ? [{ tick: i * 12, inst }] : [])));
+  Object.entries(spec).flatMap(([inst, pattern]) => [...pattern].flatMap((c, i) => (c === 'x' ? [{ tick: i * 12 * T, inst }] : [])));
 const durs = (tokens) => tokens.map((t) => (t.rest ? `${t.duration}r` : t.duration)).join(' ');
 
 describe('voiceTokens', () => {
@@ -34,7 +36,7 @@ describe('voiceTokens', () => {
   });
 
   it('detects eighth-note triplets', () => {
-    const t = voiceTokens([0, 16, 32].map((tick) => ({ tick, inst: 'ride' })), { beats: 1, beatUnit: 4 }, 'up');
+    const t = voiceTokens([0, 16, 32].map((tick) => ({ tick: tick * T, inst: 'ride' })), { beats: 1, beatUnit: 4 }, 'up');
     expect(t.map((x) => [x.duration, !!x.tuplet])).toEqual([
       ['8', true],
       ['8', true],

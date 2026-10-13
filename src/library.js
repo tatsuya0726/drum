@@ -1,3 +1,4 @@
+import { LEGACY_PPQ, PPQ } from './drums.js';
 // 作った譜面をブラウザ (localStorage) に保存する
 
 const INDEX_KEY = 'drum-practice:library';
@@ -25,8 +26,21 @@ export function listDocs() {
   return read(INDEX_KEY, []).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+/** 古い tick 単位 (4分音符=48) で保存された譜面を今の単位に直す */
+export function migrateMeasures(measures, fromPpq) {
+  if (!fromPpq || fromPpq === PPQ) return measures;
+  const k = PPQ / fromPpq;
+  return measures.map((m) => ({ ...m, notes: m.notes.map((n) => ({ ...n, tick: Math.round(n.tick * k) })) }));
+}
+
 export function loadDoc(id) {
-  return read(DOC_PREFIX + id, null);
+  const doc = read(DOC_PREFIX + id, null);
+  if (doc && doc.ppq !== PPQ) {
+    doc.measures = migrateMeasures(doc.measures ?? [], doc.ppq ?? LEGACY_PPQ);
+    doc.ppq = PPQ;
+    write(DOC_PREFIX + id, doc);
+  }
+  return doc;
 }
 
 function indexEntry(doc) {
@@ -45,6 +59,7 @@ function indexEntry(doc) {
 
 export function saveDoc(doc) {
   doc.updatedAt = Date.now();
+  doc.ppq = PPQ; // 画面で扱う譜面は常に今の単位
   const ok = write(DOC_PREFIX + doc.id, doc);
   const index = read(INDEX_KEY, []).filter((d) => d.id !== doc.id);
   index.push(indexEntry(doc));
@@ -59,6 +74,7 @@ export function saveDocs(docs) {
   let saved = 0;
   for (const doc of docs) {
     doc.updatedAt = Date.now();
+    doc.ppq = PPQ;
     if (!write(DOC_PREFIX + doc.id, doc)) break;
     index.push(indexEntry(doc));
     saved++;
@@ -118,6 +134,7 @@ export function makeDoc({ title, timeSig, bpm, measures, group, section, kind, o
       grid: m.grid ?? 4,
       notes: m.notes.map((n) => ({ tick: n.tick, inst: n.inst, vel: n.vel ?? 1, ...(n.stick ? { stick: n.stick } : {}) })),
     })),
+    ppq: PPQ,
     loop: { enabled: false, start: 0, end: 0 },
     createdAt: Date.now(),
     updatedAt: Date.now(),

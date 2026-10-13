@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { Sequencer } from '../src/audio/sequencer.js';
+import { PPQ } from '../src/drums.js';
+const T = PPQ / 48;
 
 const score = {
   timeSig: { beats: 4, beatUnit: 4 },
   measures: [
-    { notes: [{ tick: 0, inst: 'kick' }, { tick: 96, inst: 'snare' }] },
-    { notes: [{ tick: 0, inst: 'kick' }, { tick: 24, inst: 'hhc' }] },
+    { notes: [{ tick: 0, inst: 'kick' }, { tick: 96 * T, inst: 'snare' }] },
+    { notes: [{ tick: 0, inst: 'kick' }, { tick: 24 * T, inst: 'hhc' }] },
     { notes: [{ tick: 0, inst: 'crash' }] },
   ],
 };

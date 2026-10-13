@@ -1,9 +1,10 @@
+import { PPQ } from '../drums.js';
 // フレーズを音符単位でずらす (フレーズの長さで一周する回転)
 import { measureTicks } from '../audio/sequencer.js';
 
 /**
  * @param {{ timeSig, measures }} phrase
- * @param {number} ticks ずらす量 (正で後ろ、負で前)。16分音符 = 12
+ * @param {number} ticks ずらす量 (正で後ろ、負で前)。16分音符 = PPQ / 4
  * @param {string[]|null} insts ずらす楽器 (null ならすべて)
  * @returns 新しい measures 配列
  */
@@ -28,10 +29,11 @@ export function shiftMeasures(phrase, ticks, insts = null) {
 export function shiftLabel(ticks, instLabel) {
   if (!ticks) return '';
   const units = [
-    { t: 12, name: '16分' },
-    { t: 16, name: '3連8分' },
-    { t: 8, name: '3連16分' },
-    { t: 6, name: '32分' },
+    { t: PPQ / 4, name: '16分' },
+    { t: PPQ / 3, name: '3連8分' },
+    { t: PPQ / 6, name: '3連16分' },
+    { t: PPQ / 5, name: '5連16分' },
+    { t: PPQ / 8, name: '32分' },
   ];
   const unit = units.find((u) => ticks % u.t === 0) ?? { t: 1, name: 'tick' };
   const n = Math.abs(ticks) / unit.t;
