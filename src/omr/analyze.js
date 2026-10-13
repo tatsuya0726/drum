@@ -1069,7 +1069,11 @@ export function analyzePage(rgba, width, height) {
     const heads = findHeads(clean, width, staff, region, noLines).filter((hd) => hd.x > hEnd);
 
     // 「3」は音符のまとまりの上下に書かれる。近くに符頭のないもの (練習番号の数字など) は除く
-    const tripletMarks = findTripletMarks(bin, width, height, staff).filter((t) => heads.some((hd) => Math.abs(hd.x - t.x) < staff.space * 2.2 && Math.abs(hd.y - t.y) > staff.space * 0.9));
+    // 連符の数字は音符のまとまりの上 (下) にあり、段の最初の音符より左にはない (左にあるのは練習番号の「(5)」など)
+    const firstHeadX = heads.length ? Math.min(...heads.map((hd) => hd.x)) : Infinity;
+    const tripletMarks = findTripletMarks(bin, width, height, staff).filter(
+      (t) => t.x > firstHeadX + staff.space * 0.3 && heads.some((hd) => Math.abs(hd.x - t.x) < staff.space * 2.2 && Math.abs(hd.y - t.y) > staff.space * 0.9),
+    );
     // 「3」の数字を符頭と読まないようにする
     for (let i = heads.length - 1; i >= 0; i--) {
       const hd = heads[i];
