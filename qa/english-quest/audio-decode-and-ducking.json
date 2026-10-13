@@ -1,0 +1,44 @@
+{
+  "report": [
+    {
+      "name": "town",
+      "duration": 30.743229166666666,
+      "sampleRate": 48000,
+      "channels": 2,
+      "loopStart": 0,
+      "loopJump": 0,
+      "peak": 0.5722805261611938,
+      "rms": 0.08138411126588764,
+      "decoded": true
+    },
+    {
+      "name": "battle",
+      "duration": 152,
+      "sampleRate": 48000,
+      "channels": 2,
+      "loopStart": 7.5,
+      "loopJump": 0,
+      "peak": 0.7545607089996338,
+      "rms": 0.09286174941249777,
+      "decoded": true
+    },
+    {
+      "name": "boss",
+      "duration": 113.6689375,
+      "sampleRate": 48000,
+      "channels": 2,
+      "loopStart": 0,
+      "loopJump": 0,
+      "peak": 0.2980273962020874,
+      "rms": 0.08146840144924866,
+      "decoded": true
+    }
+  ],
+  "context": "running",
+  "scene": "boss",
+  "playing": "boss",
+  "error": false,
+  "ducked": false,
+  "paused": false,
+  "hidden": false
+}
