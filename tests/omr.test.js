@@ -183,3 +183,33 @@ describe.each([200, 160])('sticking @%idpi', (dpi) => {
   it('measure 2', () => expect(sticks(score.measures[1])).toBe('RLRLRRLLRLR'));
   it('kick has no sticking', () => expect(score.measures[1].notes.filter((n) => n.inst === 'kick' && n.stick)).toEqual([]));
 });
+
+// 5連符 (samples/quintuplets.ly)。Q = 5連16分 1つ分
+describe.each([200, 160])('quintuplets @%idpi', (dpi) => {
+  const png = PNG.sync.read(fs.readFileSync(new URL(`./fixtures/quintuplets-${dpi}.png`, import.meta.url)));
+  const score = buildScore([analyzePage(png.data, png.width, png.height)]);
+  const Q = PPQ / 5;
+  const S16 = PPQ / 4;
+  const ticks = (m, inst) => m.notes.filter((n) => n.inst === inst).map((n) => n.tick);
+  it('measure 1: 20 quintuplet 16ths', () => expect(ticks(score.measures[0], 'snare')).toEqual(Array.from({ length: 20 }, (_, k) => k * Q)));
+  it('measure 2: quintuplets mixed with 16ths', () => {
+    const m = score.measures[1];
+    expect(ticks(m, 'hhc')).toEqual([0, Q, 2 * Q, 3 * Q, 4 * Q, 3 * PPQ]);
+    expect(ticks(m, 'snare')).toEqual([PPQ, PPQ + S16, PPQ + 2 * S16, PPQ + 3 * S16, 2 * PPQ + Q, 2 * PPQ + 2 * Q, 2 * PPQ + 4 * Q]);
+    expect(ticks(m, 'kick')).toEqual([2 * PPQ, 2 * PPQ + 3 * Q]);
+  });
+  it('measure 3: 8ths, 16ths, quintuplets', () => {
+    const m = score.measures[2];
+    expect(ticks(m, 'hhc')).toEqual([0, PPQ / 2]);
+    expect(ticks(m, 'snare')).toEqual([PPQ, PPQ + S16, PPQ + 2 * S16, PPQ + 3 * S16, ...[0, 1, 2, 3, 4].map((k) => 2 * PPQ + k * Q)]);
+    expect(ticks(m, 'kick')).toEqual([3 * PPQ]);
+  });
+});
+
+describe('quintuplets without printed numbers', () => {
+  const png = PNG.sync.read(fs.readFileSync(new URL('./fixtures/quintuplets-nonum-200.png', import.meta.url)));
+  const score = buildScore([analyzePage(png.data, png.width, png.height)]);
+  it('reads a bar of 5 notes per beat as quintuplets', () => {
+    expect(score.measures[0].notes.map((n) => n.tick)).toEqual(Array.from({ length: 20 }, (_, k) => (k * PPQ) / 5));
+  });
+});

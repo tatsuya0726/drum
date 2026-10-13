@@ -33,8 +33,10 @@ function positionPenalty(slot, slotsPerBeat) {
   if (is(2)) return 0.25;
   if (is(4)) return 0.7;
   if (is(3)) return 1.6;
+  if (is(5)) return 1.2;
   if (is(8)) return 0.7;
   if (is(6)) return 2.2;
+  if (is(10)) return 2.4;
   return Infinity;
 }
 
@@ -67,18 +69,20 @@ function straightValuePenalty(v, d) {
 }
 
 // triplets のときは、連桁の本数が同じ 3連符 (長さ 2/3) とも読める
-function valuePenalty(v, d, triplets, slotsPerBeat) {
+function valuePenalty(v, d, tuplets, slotsPerBeat) {
   if (v == null) return 0;
-  const p = straightValuePenalty(v, d);
-  // 3連の4分音符はまれなので、連桁・旗のある音符だけ 3連とも読む
-  if (!triplets || v >= slotsPerBeat) return p;
-  const tv = (v * 2) / 3;
-  if (!Number.isInteger(tv)) return p;
-  const tp = d === tv ? 1.0 : d > tv && d % tv === 0 ? 1.2 : 9;
-  return Math.min(p, tp);
+  let p = straightValuePenalty(v, d);
+  // 3連・5連の4分音符はまれなので、連桁・旗のある音符だけ連符とも読む
+  if (v >= slotsPerBeat) return p;
+  for (const ratio of tuplets) {
+    const tv = v * ratio; // 3連は 2/3、5連は 4/5 の長さ
+    if (!Number.isInteger(tv)) continue;
+    p = Math.min(p, d === tv ? 1.0 : d > tv && d % tv === 0 ? 1.2 : 9);
+  }
+  return p;
 }
 
-export function assignSlots(xs, m, slots, slotsPerBeat, space, values = [], { triplets = false, unit = 1 } = {}) {
+export function assignSlots(xs, m, slots, slotsPerBeat, space, values = [], { triplets = false, quintuplets = false, unit = 1, groups = [] } = {}) {
   const n = xs.length;
   if (n === 0) return [];
   if (n > slots) {
@@ -100,8 +104,19 @@ export function assignSlots(xs, m, slots, slotsPerBeat, space, values = [], { tr
   const maxLog = Math.max(...logGaps);
   const bSteps = 36;
 
-  const endWeight = triplets ? 0.3 : 1;
+  const tuplets = [...(triplets ? [2 / 3] : []), ...(quintuplets ? [4 / 5] : [])];
+  const endWeight = tuplets.length ? 0.3 : 1;
   const posPen = Array.from({ length: slots }, (_, t) => positionPenalty(t, slotsPerBeat));
+  // 連符の記号から分かるまとまり: 最初の音は拍の頭、中の音は 1拍を num 等分した間隔で並ぶ
+  const stepHint = new Array(n).fill(0);
+  const startHint = new Array(n).fill(false);
+  for (const gr of groups) {
+    const d = slotsPerBeat / gr.num;
+    if (!Number.isInteger(d)) continue;
+    startHint[gr.start] = true;
+    for (let k = gr.start; k < gr.start + gr.num - 1 && k < n - 1; k++) stepHint[k] = d;
+  }
+  const hintCost = (i, t, d) => (stepHint[i] ? (d === stepHint[i] ? -0.5 : 4) : 0) + (startHint[i + 1] && t % slotsPerBeat ? 3 : 0);
   let best = { cost: Infinity, slotsOut: null };
   const INF = Infinity;
   for (const alpha of alphas) {
@@ -132,7 +147,8 @@ export function assignSlots(xs, m, slots, slotsPerBeat, space, values = [], { tr
               ((logGaps[i] - logB - logS[d]) / sigma) ** 2 +
               posPen[t] +
               durationPenalty(d, slotsPerBeat) +
-              valuePenalty(values[i], d, triplets, slotsPerBeat);
+              valuePenalty(values[i], d, tuplets, slotsPerBeat) +
+              hintCost(i, t, d);
             const k = (i + 1) * slots + t;
             if (c < dp[k]) {
               dp[k] = c;
@@ -147,7 +163,7 @@ export function assignSlots(xs, m, slots, slotsPerBeat, space, values = [], { tr
         if (base === INF) continue;
         const d = slots - s;
         // 最後の音から小節線までの間隔は楽譜ソフトによってまちまちなので、3連符もありうるときは弱めに見る
-        const c = base + endWeight * ((logGaps[n - 1] - logB - logS[d]) / sigma) ** 2 + durationPenalty(d, slotsPerBeat) * 0.5 + valuePenalty(values[n - 1], d, triplets, slotsPerBeat);
+        const c = base + endWeight * ((logGaps[n - 1] - logB - logS[d]) / sigma) ** 2 + durationPenalty(d, slotsPerBeat) * 0.5 + valuePenalty(values[n - 1], d, tuplets, slotsPerBeat);
         if (c < best.cost) {
           const out = new Array(n);
           let cur = s;

@@ -45,7 +45,7 @@ function buildVoice(measure, timeSig, which) {
     return note;
   });
 
-  // 3連符
+  // 3連符・5連符
   const tuplets = [];
   const byGroup = new Map();
   notes.forEach((n) => {
@@ -56,7 +56,8 @@ function buildVoice(measure, timeSig, which) {
   for (const group of byGroup.values()) {
     if (!group[0].__token.tuplet) continue;
     const num = group.length;
-    tuplets.push(new Tuplet(group, { numNotes: num, notesOccupied: (num / 3) * 2, bracketed: false, location: up ? 1 : -1 }));
+    const tp = group[0].__token.tuplet; // 3連は 3:2、5連は 5:4
+    tuplets.push(new Tuplet(group, { numNotes: num, notesOccupied: (num * tp.occupied) / tp.num, bracketed: false, location: up ? 1 : -1 }));
   }
 
   // 連桁 (拍のまとまりごと)

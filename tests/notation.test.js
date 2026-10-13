@@ -44,3 +44,15 @@ describe('voiceTokens', () => {
     ]);
   });
 });
+
+describe('quintuplets', () => {
+  it('writes five 16ths in a beat as a 5:4 tuplet', () => {
+    const t = voiceTokens([0, 1, 2, 3, 4].map((k) => ({ tick: (k * PPQ) / 5, inst: 'snare' })), { beats: 1, beatUnit: 4 }, 'up');
+    expect(t).toHaveLength(5);
+    expect(t.every((x) => x.duration === '16' && x.tuplet?.num === 5 && x.tuplet.occupied === 4)).toBe(true);
+  });
+  it('fills missing quintuplet positions with tuplet rests', () => {
+    const t = voiceTokens([0, 2, 4].map((k) => ({ tick: (k * PPQ) / 5, inst: 'snare' })), { beats: 1, beatUnit: 4 }, 'up');
+    expect(t.map((x) => (x.rest ? 'r' : 'n')).join('')).toBe('nrnrn');
+  });
+});

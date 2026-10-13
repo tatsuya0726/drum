@@ -52,11 +52,14 @@ export function buildScore(pages, opts = {}) {
           return bs.length ? Math.max(...bs) : null;
         });
         const has32 = beams.some((b) => b >= 3);
-        // 「3」の記号がある小節では 3連符も読めるように 1拍を 12 (32分があれば 24) に分けたグリッドで割り当てる
-        const triplets = beatUnit === 4 && m.triplets > 0;
-        const fine = has32 || xs.length > slots;
+        // 「3」「5」の記号がある小節では連符の位置も候補にする。
+        // 記号がなくても 1小節の音の数が「拍数 × 5」なら 5連符とみなす (記号を省いた教本向け)
+        const quintuplets = beatUnit === 4 && (m.quintuplets > (m.triplets ?? 0) || (!m.triplets && !m.quintuplets && xs.length === beats * 5));
+        const triplets = beatUnit === 4 && !quintuplets && m.triplets > 0;
+        const fine = has32 || (!quintuplets && xs.length > slots);
         let spb = slotsPerBeat * (fine ? 2 : 1);
         if (triplets) spb *= 3;
+        if (quintuplets) spb *= 5;
         const measureSlots = (slots / slotsPerBeat) * spb;
         const tickPerSlot = ticksPerBeat / spb;
         const values = onsets.map((o, i) => {
@@ -66,7 +69,16 @@ export function buildScore(pages, opts = {}) {
           const v = spb / 2 ** beams[i]; // 8分 = 半拍
           return Number.isInteger(v) && v >= 1 ? v : null;
         });
-        const assigned = assignSlots(xs, { start, end: m.x1 }, measureSlots, spb, st.space, values, { triplets, unit: spb / (fine ? 8 : 4) });
+        // 連符の記号の真下 (真上) にある num 個の音を 1つのまとまりとする
+        const groups = [];
+        for (const mk of m.tupletMarks ?? []) {
+          if ((mk.num === 5 && !quintuplets) || (mk.num === 3 && !triplets) || xs.length < mk.num) continue;
+          let c = 0;
+          for (let i = 1; i < xs.length; i++) if (Math.abs(xs[i] - mk.x) < Math.abs(xs[c] - mk.x)) c = i;
+          const startIdx = Math.max(0, Math.min(xs.length - mk.num, c - Math.floor(mk.num / 2)));
+          if (!groups.some((g) => g.start === startIdx)) groups.push({ start: startIdx, num: mk.num });
+        }
+        const assigned = assignSlots(xs, { start, end: m.x1 }, measureSlots, spb, st.space, values, { triplets, quintuplets, unit: spb / (fine ? 8 : 4), groups });
         // 手順 (R / L) の文字を一番近い発音に割り当てる (足の音には付けない)
         const stickOf = new Map();
         const pairs = [];

@@ -17,9 +17,11 @@ for (const file of files) {
   console.log('==', file);
   doc.measures.forEach((m, i) => {
     const out = {};
-    const step = m.notes.some((n) => n.tick % 12) ? (m.notes.every((n) => n.tick % 8 === 0) ? 8 : m.notes.every((n) => n.tick % 6 === 0) ? 6 : 4) : 12;
+    // 全部の音の位置を割り切れる一番大きい単位 (16分以下) で表示する
+    const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+    const step = m.notes.reduce((g, n) => gcd(g, n.tick), 60);
     for (const n of m.notes) {
-      out[n.inst] ??= '.'.repeat(192 / step).split('');
+      out[n.inst] ??= '.'.repeat(960 / step).split('');
       out[n.inst][n.tick / step] = 'x';
     }
     console.log(String(i + 1).padStart(2), Object.entries(out).sort().map(([k, v]) => `${k}:${v.join('')}`).join(' '));

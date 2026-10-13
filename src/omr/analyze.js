@@ -784,10 +784,47 @@ export function findTripletMarks(bin, w, h, staff) {
     for (const c of components(bin, w, { rx0, ry0, rx1, ry1 })) {
       if (c.h < space * 0.8 || c.h > space * 2.2 || c.w < space * 0.45 || c.w > space * 1.5 || c.w > c.h || c.w < c.h * 0.45) continue;
       if (c.y0 <= ry0 || c.y1 >= ry1) continue;
-      if (isThree(bin, w, c)) marks.push({ x: (c.x0 + c.x1) / 2, y: (c.y0 + c.y1) / 2 });
+      const num = isThree(bin, w, c) ? 3 : isFive(bin, w, c) ? 5 : 0;
+      if (num) marks.push({ x: (c.x0 + c.x1) / 2, y: (c.y0 + c.y1) / 2, num });
     }
   }
   return marks;
+}
+
+/** 各行の左端・右端の位置 (部品の幅に対する割合) */
+function edgeProfile(bin, w, c) {
+  const L = [];
+  const R = [];
+  for (let y = c.y0; y <= c.y1; y++) {
+    let l = -1;
+    let r = -1;
+    for (let x = c.x0; x <= c.x1; x++) {
+      if (bin[y * w + x]) {
+        if (l < 0) l = x;
+        r = x;
+      }
+    }
+    L.push(l < 0 ? 1 : (l - c.x0) / c.w);
+    R.push(r < 0 ? 0 : (r - c.x0 + 1) / c.w);
+  }
+  return { L, R };
+}
+
+/**
+ * 5連符の「5」: 上の横棒が右へ伸び、その下は左の縦棒だけ (右が空く)、
+ * 下半分は右に膨らんで左が開き、一番下で左へ戻る
+ */
+function isFive(bin, w, c) {
+  const { L, R } = edgeProfile(bin, w, c);
+  const n = L.length;
+  const part = (arr, a, b, fn) => fn(...arr.slice(Math.floor(n * a), Math.max(Math.floor(n * a) + 1, Math.ceil(n * b))));
+  if (part(R, 0, 0.15, Math.max) < 0.75) return false; // 上の横棒
+  if (part(R, 0.22, 0.38, Math.min) > 0.6) return false; // 縦棒の右は空いている
+  if (part(L, 0.1, 0.4, Math.max) > 0.5) return false; // 縦棒は左側
+  if (part(R, 0.55, 0.75, Math.max) < 0.8) return false; // 下の丸は右に膨らむ
+  if (part(L, 0.55, 0.78, Math.max) < 0.4) return false; // 丸の左は開いている
+  if (part(L, 0.85, 1, Math.min) > 0.4) return false; // 一番下は左へ戻る
+  return true;
 }
 
 function isThree(bin, w, c) {
@@ -1058,9 +1095,10 @@ export function analyzePage(rgba, width, height) {
       const x0 = bounds[k];
       const x1 = bounds[k + 1];
       const notes = heads.filter((hd) => hd.x > x0 && hd.x < x1);
-      const triplets = tripletMarks.filter((t) => t.x > x0 && t.x < x1).length;
+      const triplets = tripletMarks.filter((t) => t.num === 3 && t.x > x0 && t.x < x1).length;
+      const quintuplets = tripletMarks.filter((t) => t.num === 5 && t.x > x0 && t.x < x1).length;
       const stickings = stickMarks.filter((t) => t.x > x0 && t.x < x1);
-      measures.push({ x0, x1, contentStart: k === 0 ? hEnd : x0, firstInSystem: k === 0, notes, triplets, stickings });
+      measures.push({ x0, x1, contentStart: k === 0 ? hEnd : x0, firstInSystem: k === 0, notes, triplets, quintuplets, tupletMarks: tripletMarks.filter((t) => t.x > x0 && t.x < x1).map((t) => ({ x: t.x, num: t.num })), stickings });
     }
     // 符頭が1つもない段頭の領域 (拍子記号だけの区間など) は捨てる
     if (measures.length > 1 && measures[0].notes.length === 0 && measures[0].x1 - hEnd < staff.space * 2) {

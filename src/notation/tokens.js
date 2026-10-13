@@ -54,7 +54,7 @@ export function groupTicks(timeSig) {
 
 /** まとまりの中の音の位置をすべて表せる、いちばん粗い単位を選ぶ */
 function chooseUnit(group, offsets) {
-  const candidates = group === PPQ * 1.5 ? [group, PPQ / 2, PPQ / 4, PPQ / 8] : [group, group / 2, group / 4, group / 3, group / 6, group / 8];
+  const candidates = group === PPQ * 1.5 ? [group, PPQ / 2, PPQ / 4, PPQ / 8] : [group, group / 2, group / 4, group / 3, group / 6, group / 8, group / 5, group / 10];
   for (const u of candidates) {
     if (!Number.isInteger(u)) continue;
     if (offsets.every((o) => o % u === 0)) return u;
@@ -91,7 +91,7 @@ export function voiceTokens(notes, timeSig, voice) {
     }
     const offsets = [...byOffset.keys()].sort((a, b) => a - b);
     const u = chooseUnit(len, offsets);
-    const triplet = (PPQ % u !== 0 || u === PPQ / 3 || u === PPQ / 6) && len === PPQ;
+    const triplet = (u === PPQ / 3 || u === PPQ / 6 || u === PPQ / 5 || u === PPQ / 10) && len === PPQ;
     if (triplet && u === PPQ / 6) {
       // 3連16分は半拍ずつ 3 つのまとまりにする (半拍まるごと休みなら普通の 8分休符)
       const half = PPQ / 2;
@@ -141,8 +141,9 @@ export function voiceTokens(notes, timeSig, voice) {
 }
 
 function tripletToken(u, rest, insts, group) {
-  // 3連8分 (16tick) / 3連16分 (8tick)
-  const duration = u === PPQ / 3 ? '8' : '16';
+  // 3連8分 / 3連16分 / 5連16分 / 5連32分
+  const quint = u === PPQ / 5 || u === PPQ / 10;
+  const duration = u === PPQ / 3 ? '8' : u === PPQ / 10 ? '32' : '16';
   return {
     ticks: u,
     duration,
@@ -150,7 +151,7 @@ function tripletToken(u, rest, insts, group) {
     insts,
     keys: rest ? [] : keysFor(insts),
     group,
-    tuplet: { num: 3, occupied: 2 },
+    tuplet: quint ? { num: 5, occupied: 4 } : { num: 3, occupied: 2 },
   };
 }
 
