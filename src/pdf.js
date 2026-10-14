@@ -60,12 +60,12 @@ function getWorker() {
   return worker;
 }
 
-function analyzeInWorker(imageData) {
+function analyzeInWorker(imageData, opts = {}) {
   const id = nextId++;
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject });
     const buf = imageData.data.buffer;
-    getWorker().postMessage({ id, data: buf, width: imageData.width, height: imageData.height }, [buf]);
+    getWorker().postMessage({ id, data: buf, width: imageData.width, height: imageData.height, opts }, [buf]);
   });
 }
 
@@ -83,6 +83,58 @@ export async function analyzePdfPage(page) {
     const spaces = result.staves.map((s) => s.space).sort((a, b) => a - b);
     const space = spaces[Math.floor(spaces.length / 2)];
     const next = Math.min(6, Math.max(1, (scale * TARGET_SPACE) / space));
+    if (attempt === 0 && Math.abs(next - scale) / scale > 0.25) {
+      scale = next;
+      continue;
+    }
+    return result;
+  }
+  return null;
+}
+
+/** 写真 (画像) を読み込む。スマホの写真の向き (EXIF) も反映する */
+export async function loadImage(file) {
+  try {
+    return await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      return await createImageBitmap(img);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+}
+
+/** 画像を倍率 scale でキャンバスに描く (白背景) */
+export function drawImageToCanvas(bitmap, scale, canvas = document.createElement('canvas')) {
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+/** 写真 1枚を解析する。五線間隔が TARGET_SPACE 付近になる大きさに直してから読む */
+export async function analyzeImage(bitmap) {
+  // まずは長い辺が 2000px くらいの大きさで五線を探す
+  let scale = Math.min(1.5, 2000 / Math.max(bitmap.width, bitmap.height));
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const canvas = drawImageToCanvas(bitmap, scale);
+    const img = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+    const result = await analyzeInWorker(img, { photo: true });
+    canvas.width = canvas.height = 0;
+    if (!result.staves.length) return result;
+    const spaces = result.staves.map((s) => s.space).sort((a, b) => a - b);
+    const space = spaces[Math.floor(spaces.length / 2)];
+    // 大きすぎる画像にはしない (長い辺 5000px まで)
+    const next = Math.min(5000 / Math.max(bitmap.width, bitmap.height), (scale * TARGET_SPACE) / space);
     if (attempt === 0 && Math.abs(next - scale) / scale > 0.25) {
       scale = next;
       continue;

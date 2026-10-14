@@ -33,7 +33,7 @@ function grayToBinary(gray, threshold) {
  * スキャンした楽譜の傾き (度) を推定する。横線 (五線) が水平になる角度で
  * 行ごとの黒画素数の分布が最も尖る、という性質を使う。
  */
-export function estimateSkew(bin, w, h) {
+export function estimateSkew(bin, w, h, range = 3) {
   const f = Math.max(1, Math.round(w / 800));
   const sw = Math.floor(w / f);
   const sh = Math.floor(h / f);
@@ -64,7 +64,8 @@ export function estimateSkew(bin, w, h) {
   };
   let best = 0;
   let bestScore = score(0);
-  for (let d = -3; d <= 3.001; d += 0.1) {
+  const step = range > 3 ? 0.25 : 0.1;
+  for (let d = -range; d <= range + 0.001; d += step) {
     const sc = score(d);
     if (sc > bestScore * 1.0001) {
       bestScore = sc;
@@ -72,7 +73,7 @@ export function estimateSkew(bin, w, h) {
     }
   }
   const center = best;
-  for (let d = center - 0.1; d <= center + 0.1; d += 0.02) {
+  for (let d = center - step; d <= center + step; d += 0.02) {
     const sc = score(d);
     if (sc > bestScore) {
       bestScore = sc;
@@ -1035,10 +1036,100 @@ function headerEnd(comps, staff, firstBar) {
  * 1ページ分の画像を解析する。
  * 戻り値の座標はピクセル単位 (呼び出し側で正規化する)
  */
-export function analyzePage(rgba, width, height) {
+/**
+ * 写真の明るさのむら (影・照明) をならす。紙の明るさ (周りの一番明るい値) で割って白を 255 にそろえる
+ */
+export function flattenLighting(gray, w, h) {
+  const B = Math.max(16, Math.round(Math.max(w, h) / 60));
+  const sw = Math.ceil(w / B);
+  const sh = Math.ceil(h / B);
+  let bg = new Float32Array(sw * sh);
+  for (let by = 0; by < sh; by++) {
+    for (let bx = 0; bx < sw; bx++) {
+      // ブロックの中の明るいほう 1 割くらいを紙の色とみなす
+      const vals = [];
+      for (let y = by * B; y < Math.min(h, (by + 1) * B); y += 2) for (let x = bx * B; x < Math.min(w, (bx + 1) * B); x += 2) vals.push(gray[y * w + x]);
+      vals.sort((a, b) => b - a);
+      bg[by * sw + bx] = vals[Math.floor(vals.length * 0.1)] ?? 255;
+    }
+  }
+  // 文字が詰まったブロックで暗くならないよう、まわりの最大値をとってからぼかす
+  const grow = new Float32Array(bg.length);
+  for (let y = 0; y < sh; y++) {
+    for (let x = 0; x < sw; x++) {
+      let m = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const yy = y + dy;
+        const xx = x + dx;
+        if (yy >= 0 && yy < sh && xx >= 0 && xx < sw) m = Math.max(m, bg[yy * sw + xx]);
+      }
+      grow[y * sw + x] = m;
+    }
+  }
+  bg = grow;
+  for (let pass = 0; pass < 2; pass++) {
+    const out = new Float32Array(bg.length);
+    for (let y = 0; y < sh; y++) {
+      for (let x = 0; x < sw; x++) {
+        let sum = 0;
+        let n = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const yy = y + dy;
+          const xx = x + dx;
+          if (yy >= 0 && yy < sh && xx >= 0 && xx < sw) {
+            sum += bg[yy * sw + xx];
+            n++;
+          }
+        }
+        out[y * sw + x] = sum / n;
+      }
+    }
+    bg = out;
+  }
+  const res = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const fy = Math.min(sh - 1.001, Math.max(0, y / B - 0.5));
+    const y0 = Math.floor(fy);
+    const ty = fy - y0;
+    for (let x = 0; x < w; x++) {
+      const fx = Math.min(sw - 1.001, Math.max(0, x / B - 0.5));
+      const x0 = Math.floor(fx);
+      const tx = fx - x0;
+      const i = y0 * sw + x0;
+      const b0 = bg[i] * (1 - tx) + bg[Math.min(i + 1, bg.length - 1)] * tx;
+      const b1 = bg[Math.min(i + sw, bg.length - 1)] * (1 - tx) + bg[Math.min(i + sw + 1, bg.length - 1)] * tx;
+      const b = Math.max(40, b0 * (1 - ty) + b1 * ty);
+      res[y * w + x] = Math.min(255, (gray[y * w + x] * 255) / b);
+    }
+  }
+  return res;
+}
+
+/** ぼやけた写真の線をくっきりさせる (アンシャープマスク) */
+export function sharpen(gray, w, h, amount) {
+  const out = new Uint8Array(gray.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) {
+        out[i] = gray[i];
+        continue;
+      }
+      const blur = (gray[i - w - 1] + gray[i - w] + gray[i - w + 1] + gray[i - 1] + gray[i] + gray[i + 1] + gray[i + w - 1] + gray[i + w] + gray[i + w + 1]) / 9;
+      out[i] = Math.max(0, Math.min(255, gray[i] + amount * (gray[i] - blur)));
+    }
+  }
+  return out;
+}
+
+/**
+ * @param {object} [opts] { photo: true なら写真向けに明るさのむらをならし、大きな傾き (±12°) まで直す }
+ */
+export function analyzePage(rgba, width, height, opts = {}) {
   let gray = toGray(rgba, width, height);
-  // スキャンした本は少し傾いていることが多いので、まっすぐに直してから読む
-  const skew = estimateSkew(grayToBinary(gray, 200), width, height);
+  if (opts.photo) gray = sharpen(flattenLighting(gray, width, height), width, height, 1.2);
+  // スキャンした本や写真は傾いていることが多いので、まっすぐに直してから読む
+  const skew = estimateSkew(grayToBinary(gray, 200), width, height, opts.photo ? 12 : 3);
   if (Math.abs(skew) >= 0.05) gray = rotateGray(gray, width, height, skew);
   let bin = grayToBinary(gray, 170);
   let staves = findStaves(bin, width, height);

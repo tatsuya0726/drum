@@ -213,3 +213,26 @@ describe('quintuplets without printed numbers', () => {
     expect(score.measures[0].notes.map((n) => n.tick)).toEqual(Array.from({ length: 20 }, (_, k) => (k * PPQ) / 5));
   });
 });
+
+// スマホで撮ったような写真 (6° 傾き・影・灰色の紙・ぼけ・JPEG のノイズ) を写真モードで読む
+describe('photo of a score', () => {
+  const read = (name, photo) => {
+    const png = PNG.sync.read(fs.readFileSync(new URL(`./fixtures/${name}`, import.meta.url)));
+    return { page: analyzePage(png.data, png.width, png.height, { photo }), png };
+  };
+  const clean = buildScore([read('groove-220.png', false).page]);
+  const { page } = read('photo-groove.png', true);
+  const photo = buildScore([page]);
+  const key = (sc) => new Set(sc.measures.flatMap((m, i) => m.notes.map((n) => `${i}:${n.tick}:${n.inst}`)));
+  it('straightens the tilt and finds every measure', () => {
+    expect(Math.abs(page.skew - 6)).toBeLessThan(0.5);
+    expect(photo.measures.length).toBe(8);
+  });
+  it('reads at least 90% of the notes the same as the clean score', () => {
+    const want = key(clean);
+    const got = key(photo);
+    const same = [...got].filter((k) => want.has(k)).length;
+    expect(same / want.size).toBeGreaterThan(0.9);
+    expect(got.size - same).toBeLessThan(6);
+  });
+});

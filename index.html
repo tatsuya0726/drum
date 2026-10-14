@@ -59,8 +59,8 @@
           <svg class="ic"><use href="#i-plus" /></svg><span class="hide-sm">新規作成</span>
         </button>
         <label class="btn btn-ghost" title="PDF を開く">
-          <svg class="ic"><use href="#i-file" /></svg><span class="hide-sm">PDFを開く</span>
-          <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
+          <svg class="ic"><use href="#i-file" /></svg><span class="hide-sm">PDF・写真を開く</span>
+          <input id="file-input" type="file" accept="application/pdf,.pdf,image/*" multiple hidden />
         </label>
         <button class="icon-btn" id="metro-btn" title="メトロノーム" aria-label="メトロノーム" aria-expanded="false">
           <svg class="ic"><use href="#i-metro" /></svg>
@@ -97,6 +97,10 @@
             <label class="btn" id="dropzone">
               <input id="file-input-2" type="file" accept="application/pdf,.pdf" hidden />
               <svg class="ic"><use href="#i-file" /></svg>PDFから取り込む
+            </label>
+            <label class="btn">
+              <input id="photo-input" type="file" accept="image/*" multiple hidden />
+              <svg class="ic"><use href="#i-camera" /></svg>写真から取り込む
             </label>
           </div>
         </div>

@@ -3,7 +3,7 @@ import { INSTRUMENTS, instrumentById, instrumentFor } from './drums.js';
 import { Player } from './audio/player.js';
 import { ticksPerBeat, measureTicks } from './audio/sequencer.js';
 import { buildScore } from './omr/buildScore.js';
-import { analyzePdfPage, openPdf, readTextHints, renderToCanvas } from './pdf.js';
+import { analyzeImage, analyzePdfPage, drawImageToCanvas, loadImage, openPdf, readTextHints, renderToCanvas } from './pdf.js';
 import { GridEditor, GRIDS } from './grid.js';
 import { loadDoc, makeDoc, saveDoc } from './library.js';
 import { initGame } from './game/game.js';
@@ -19,6 +19,7 @@ const MIXER_KEY = 'drum-practice:mixer';
 const state = {
   view: 'home',
   pdf: null,
+  images: null, // 写真から取り込んだとき: [{ bitmap, name }] (上から順につなげる)
   pdfKey: null,
   pdfName: '',
   analyses: null,
@@ -154,6 +155,7 @@ async function loadPdf(data, name) {
     if (state.pdf) state.pdf.destroy();
     const pdf = await openPdf(data);
     state.pdf = pdf;
+    state.images = null;
     state.pdfKey = pdf.fingerprints?.[0] ?? name;
     state.pdfName = name;
     state.analyses = null;
@@ -183,14 +185,111 @@ async function loadPdf(data, name) {
   }
 }
 
+// ------------------------------------------------------------ 写真
+
+/**
+ * 写真 (複数可) から楽譜を読み取る。append なら今の写真の後ろにつなげる
+ * @param {File[]} files
+ */
+async function loadImages(files, { append = false } = {}) {
+  if (!files.length) return;
+  stop();
+  player.preload();
+  loading('写真を読み込み中…');
+  try {
+    const items = [];
+    for (const file of files) {
+      try {
+        items.push({ bitmap: await loadImage(file), name: file.name });
+      } catch (err) {
+        console.error(err);
+        toast(`${file.name} を開けませんでした`, 4000);
+      }
+    }
+    if (!items.length) return;
+    if (!append || !state.images) {
+      if (state.pdf) state.pdf.destroy();
+      state.pdf = null;
+      state.images = [];
+      state.analyses = [];
+      state.pdfKey = null;
+      state.pdfName = files.length > 1 ? `写真の楽譜 (${files.length}枚)` : '写真の楽譜';
+      state.mapping = {};
+      state.baseTempo = 100;
+      state.selected = 0;
+      seq.loop = { enabled: false, start: 0, end: 0 };
+    }
+    state.images.push(...items);
+    state.analyses.push(...items.map(() => null));
+    setView('pdf');
+    await renderPages();
+    await recognize(state.pdfName);
+    if (!append) setTempo(state.baseTempo);
+    if (state.score?.measures.length) toast(`${state.images.length}枚の写真から ${state.score.measures.length}小節を読み取りました。順番は各写真の上のボタンで変えられます`, 5000);
+  } finally {
+    loading(null);
+  }
+}
+
+/** 写真の並べ替え・削除 (読み取り結果はそのまま使い回す) */
+async function moveImage(i, d) {
+  const j = i + d;
+  if (!state.images || j < 0 || j >= state.images.length) return;
+  for (const arr of [state.images, state.analyses]) [arr[i], arr[j]] = [arr[j], arr[i]];
+  await renderPages();
+  await recognize();
+}
+
+async function removeImage(i) {
+  if (!state.images) return;
+  state.images.splice(i, 1);
+  state.analyses.splice(i, 1);
+  if (!state.images.length) {
+    state.images = null;
+    setView('home');
+    return;
+  }
+  await renderPages();
+  await recognize();
+}
+
 async function renderPages() {
   const pages = $('pages');
   pages.innerHTML = '';
   state.pageWraps = [];
-  const pdf = state.pdf;
-  if (!pdf) return;
   const width = Math.min(1100, $('viewer').clientWidth - 32);
   const dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (state.images) {
+    const bar = document.createElement('div');
+    bar.className = 'photo-bar';
+    bar.innerHTML = `<span>写真 ${state.images.length}枚 · 上から順につなげて1つの楽譜にします</span>
+      <label class="btn btn-ghost"><svg class="ic"><use href="#i-plus" /></svg>写真を追加<input type="file" accept="image/*" multiple hidden data-add-photos /></label>`;
+    pages.appendChild(bar);
+    state.images.forEach((im, i) => {
+      const head = document.createElement('div');
+      head.className = 'photo-head';
+      head.innerHTML = `<b>${i + 1}枚目</b><span class="name">${im.name}</span>
+        <button class="icon-btn" data-photo-up="${i}" ${i === 0 ? 'disabled' : ''} aria-label="前へ" title="前へ"><svg class="ic"><use href="#i-chev-left" /></svg></button>
+        <button class="icon-btn" data-photo-down="${i}" ${i === state.images.length - 1 ? 'disabled' : ''} aria-label="後ろへ" title="後ろへ"><svg class="ic"><use href="#i-chev-right" /></svg></button>
+        <button class="icon-btn" data-photo-del="${i}" aria-label="この写真を外す" title="この写真を外す"><svg class="ic"><use href="#i-trash" /></svg></button>`;
+      head.style.maxWidth = `${width}px`;
+      pages.appendChild(head);
+      const wrap = document.createElement('div');
+      wrap.className = 'page';
+      wrap.style.aspectRatio = `${im.bitmap.width} / ${im.bitmap.height}`;
+      wrap.style.maxWidth = `${width}px`;
+      wrap.appendChild(drawImageToCanvas(im.bitmap, Math.min(1, (width * dpr) / im.bitmap.width)));
+      const overlay = document.createElement('div');
+      overlay.className = 'overlay';
+      wrap.appendChild(overlay);
+      pages.appendChild(wrap);
+      state.pageWraps.push({ wrap, overlay });
+    });
+    renderPdfOverlays();
+    return;
+  }
+  const pdf = state.pdf;
+  if (!pdf) return;
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
     const vp = page.getViewport({ scale: 1 });
@@ -210,7 +309,14 @@ async function renderPages() {
 
 async function recognize(title) {
   const pdf = state.pdf;
-  if (!pdf) return;
+  if (state.images) {
+    const n = state.images.length;
+    for (let i = 0; i < n; i++) {
+      if (state.analyses[i]) continue;
+      loading(n > 1 ? `写真を読み取り中… ${i + 1} / ${n} 枚` : '写真を読み取り中…');
+      state.analyses[i] = (await analyzeImage(state.images[i].bitmap)) ?? { width: 1, height: 1, staves: [] };
+    }
+  } else if (!pdf) return;
   if (!state.analyses) {
     const analyses = [];
     for (let p = 1; p <= pdf.numPages; p++) {
@@ -223,12 +329,18 @@ async function recognize(title) {
   const score = buildScore(state.analyses, { beats, beatUnit, mapping: state.mapping });
   score.title = title ?? state.score?.title ?? '';
   loading(null);
-  if (!score.measures.length) toast('五線が見つかりませんでした。5線のドラム譜の PDF か確認してください', 7000);
+  if (!score.measures.length)
+    toast(state.images ? '五線が見つかりませんでした。楽譜が画面いっぱいに、まっすぐ明るく写るように撮ってください' : '五線が見つかりませんでした。5線のドラム譜の PDF か確認してください', 7000);
   applyScore(score);
 }
 
 function renderPdfOverlays() {
-  for (const { overlay } of state.pageWraps) overlay.innerHTML = '';
+  state.pageWraps.forEach(({ overlay }, i) => {
+    overlay.innerHTML = '';
+    // 読み取りは傾きを直した画像で行うので、枠をページの傾きに合わせて回す
+    const skew = state.analyses?.[i]?.skew ?? 0;
+    overlay.style.transform = skew ? `rotate(${skew}deg)` : '';
+  });
   const score = state.score;
   if (!score || state.view !== 'pdf') return;
   const showHeads = $('show-heads').checked;
@@ -873,7 +985,7 @@ $('mapping').addEventListener('change', async (e) => {
 });
 
 $('timesig-select').addEventListener('change', async () => {
-  if (state.pdf && state.view === 'pdf') await recognize();
+  if ((state.pdf || state.images) && state.view === 'pdf') await recognize();
 });
 $('show-heads').addEventListener('change', renderPdfOverlays);
 
@@ -890,21 +1002,48 @@ $('scrim').addEventListener('click', () => openPanel(false));
 
 // ------------------------------------------------------------ ファイル
 
-async function openFile(file) {
-  if (!file) return;
-  if (!/pdf$/i.test(file.type) && !/\.pdf$/i.test(file.name)) {
-    toast('PDF ファイルを選んでください');
+const isPdf = (f) => /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name);
+const isImage = (f) => /^image\//i.test(f.type) || /\.(jpe?g|png|heic|heif|webp|gif|bmp)$/i.test(f.name);
+
+/** PDF なら 1つ目を開き、写真なら全部をつなげて読む */
+async function openFiles(files) {
+  files = [...(files ?? [])];
+  if (!files.length) return;
+  const pdf = files.find(isPdf);
+  if (pdf) {
+    await loadPdf(new Uint8Array(await pdf.arrayBuffer()), pdf.name.replace(/\.pdf$/i, ''));
     return;
   }
-  await loadPdf(new Uint8Array(await file.arrayBuffer()), file.name.replace(/\.pdf$/i, ''));
+  const images = files.filter(isImage);
+  if (!images.length) {
+    toast('PDF か楽譜の写真を選んでください');
+    return;
+  }
+  await loadImages(images);
 }
 
-for (const id of ['file-input', 'file-input-2']) {
+for (const id of ['file-input', 'file-input-2', 'photo-input']) {
   $(id).addEventListener('change', async (e) => {
-    await openFile(e.target.files[0]);
+    const files = [...e.target.files];
     e.target.value = '';
+    await openFiles(files);
   });
 }
+
+$('pages').addEventListener('change', async (e) => {
+  if (!e.target.matches('[data-add-photos]')) return;
+  const files = [...e.target.files].filter(isImage);
+  e.target.value = '';
+  await loadImages(files, { append: true });
+});
+$('pages').addEventListener('click', async (e) => {
+  const up = e.target.closest('[data-photo-up]');
+  if (up) return moveImage(Number(up.dataset.photoUp), -1);
+  const down = e.target.closest('[data-photo-down]');
+  if (down) return moveImage(Number(down.dataset.photoDown), 1);
+  const del = e.target.closest('[data-photo-del]');
+  if (del && confirm('この写真を外しますか?')) return removeImage(Number(del.dataset.photoDel));
+});
 
 document.querySelectorAll('[data-sample]').forEach((b) =>
   b.addEventListener('click', async () => {
@@ -930,7 +1069,7 @@ viewer.addEventListener('dragleave', (e) => {
 viewer.addEventListener('drop', async (e) => {
   e.preventDefault();
   document.body.classList.remove('dragging');
-  await openFile(e.dataTransfer.files[0]);
+  await openFiles(e.dataTransfer.files);
 });
 
 // ------------------------------------------------------------ キーボード
@@ -988,7 +1127,7 @@ window.addEventListener('resize', () => {
   resizeTimer = setTimeout(() => {
     if (Math.abs(viewer.clientWidth - lastWidth) < 40) return;
     lastWidth = viewer.clientWidth;
-    if (state.view === 'pdf' && state.pdf) renderPages();
+    if (state.view === 'pdf' && (state.pdf || state.images)) renderPages();
     if (state.view === 'edit') renderNotation();
   }, 300);
 });

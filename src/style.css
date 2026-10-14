@@ -2485,3 +2485,39 @@ body[data-view='home'] .viewer {
 body.modal-open {
   overflow: hidden;
 }
+
+/* 写真から取り込んだとき */
+.photo-bar {
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 auto 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.photo-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px auto 6px;
+  font-size: 13px;
+}
+.photo-head b {
+  color: var(--text);
+}
+.photo-head .name {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.photo-head .icon-btn:disabled {
+  opacity: 0.3;
+}
