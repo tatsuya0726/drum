@@ -141,6 +141,7 @@
               <button class="nav-btn" id="pv-next" title="次のフレーズ" aria-label="次のフレーズ"><svg class="ic"><use href="#i-chev-right" /></svg></button>
             </div>
             <div class="pv-pos" id="pv-pos"></div>
+            <div class="range-banner hidden" id="pv-range-banner"><span id="pv-range-label"></span><button class="link-btn" id="pv-range-clear">全体に戻す</button></div>
             <div class="live-panel hidden" id="pv-live-panel" aria-live="polite">
               <div class="live-last" id="pv-live-last">叩いてみてください</div>
               <div class="live-stats">
@@ -150,6 +151,7 @@
                 <div><small>平均のずれ</small><b id="pv-live-mean">-</b></div>
               </div>
               <div class="live-counts" id="pv-live-counts"></div>
+              <div class="live-advice hidden" id="pv-live-advice"></div>
             </div>
             <div class="pv-shift">
               <h3>フレーズをずらす</h3>
@@ -176,6 +178,19 @@
           <div class="card pv-settings">
             <h3>練習の設定</h3>
             <div class="pv-options">
+              <div class="row pv-range-row" id="pv-range-row"><span>練習する小節</span>
+                <span class="range-selects"><select id="pv-range-from" aria-label="最初の小節"></select>〜<select id="pv-range-to" aria-label="最後の小節"></select></span>
+              </div>
+              <label class="row"><span>メトロノームの鳴らし方</span>
+                <select id="pv-click-mode"></select>
+              </label>
+              <label class="row switch-row"><span>合格したらテンポを上げる</span><input type="checkbox" class="switch" id="pv-autoup" /></label>
+              <div class="row sub-row autoup-row"><span>合格点 / 上げ幅</span>
+                <span class="range-selects">
+                  <select id="pv-up-pass" aria-label="合格点"><option value="80">80点</option><option value="85">85点</option><option value="90">90点</option><option value="95">95点</option></select>
+                  <select id="pv-up-step" aria-label="上げ幅"><option value="2">+2</option><option value="5">+5</option><option value="10">+10</option></select>
+                </span>
+              </div>
               <label class="row"><span>フレーズを続けて叩く回数</span>
                 <select id="pv-loops"><option value="1">1回</option><option value="2">2回</option><option value="4">4回</option><option value="8">8回</option></select>
               </label>

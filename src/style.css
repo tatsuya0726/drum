@@ -2642,3 +2642,105 @@ body.modal-open {
   gap: 4px 12px;
   font-size: 12px;
 }
+
+/* ---------------------------------------------------------------- 分析・部分練習・間引き */
+
+.banner.up {
+  background: color-mix(in srgb, var(--g-perfect) 16%, transparent);
+  color: var(--g-perfect);
+}
+.btn.small {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.range-selects {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.range-banner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--loop-soft);
+  color: var(--loop);
+  font-size: 13px;
+  font-weight: 600;
+}
+.range-banner.hidden,
+.live-advice.hidden,
+.pv-range-row.hidden {
+  display: none;
+}
+.mbox.out-range {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.live-advice {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.live-advice small {
+  color: var(--text-3);
+}
+.live-advice ul,
+.an-tips {
+  margin: 4px 0 8px;
+  padding-left: 1.2em;
+  line-height: 1.55;
+}
+.analysis {
+  margin: 12px 0;
+}
+.analysis summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.analysis h4 {
+  margin: 12px 0 4px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.an-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.an-table th,
+.an-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+.an-table th:first-child {
+  text-align: left;
+  white-space: normal;
+  font-weight: 600;
+}
+.an-table thead th {
+  font-size: 11px;
+  color: var(--text-3);
+  font-weight: 500;
+}
+.an-table .early {
+  color: #3b82f6;
+}
+.an-table .late {
+  color: #f97316;
+}
+.an-table .just {
+  color: var(--g-perfect);
+}
+.an-weak {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

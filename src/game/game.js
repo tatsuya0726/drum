@@ -1,6 +1,8 @@
 // ドラム上達ゲーム: フレーズ一覧 (ハブ) と練習画面 (テンポ・録音・採点・成長記録・ずらし)
 import { INSTRUMENTS, PPQ, instrumentById } from '../drums.js';
-import { measureTicks } from '../audio/sequencer.js';
+import { measureTicks, ticksPerBeat } from '../audio/sequencer.js';
+import { CLICK_MODES, clickTicks, isRestBar } from '../audio/clicks.js';
+import { analyzeTake } from './analysis.js';
 import { CATEGORIES, PRESETS, presetById } from './presets.js';
 import { shiftLabel, shiftMeasures } from './shift.js';
 import { TakeRecorder } from './recorder.js';
@@ -27,11 +29,14 @@ const GRADE = {
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const starStr = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
 
+const PREF_DEFAULTS = { loops: 2, metronome: true, clickInRec: false, guide: false, headphones: false, sensitivity: 0.5, video: false, facing: 'user', clickMode: 'all', autoUp: false, upPass: 90, upStep: 5 };
+const msStr = (s) => `${s > 0 ? '+' : ''}${Math.round(s * 1000)}ms`;
+
 function loadPrefs() {
   try {
-    return { loops: 2, metronome: true, clickInRec: false, guide: false, headphones: false, sensitivity: 0.5, video: false, facing: 'user', ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') };
+    return { ...PREF_DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') };
   } catch {
-    return { loops: 2, metronome: true, clickInRec: false, guide: false, headphones: false, sensitivity: 0.5, video: false, facing: 'user' };
+    return { ...PREF_DEFAULTS };
   }
 }
 
@@ -49,6 +54,8 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   const g = {
     phrase: null, // 元のフレーズ
     shift: { ticks: 0, target: 'all', unit: PPQ / 4 },
+    range: null, // 一部の小節だけ練習するとき { from, to } (0 始まり)
+    playRange: null, // 鳴らしている譜面が元の何小節目からか { from, len }
     bpm: 100,
     mode: 'idle', // idle | listen | record | calibrate
     recorder: null,
@@ -402,6 +409,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     stopAll();
     g.phrase = p;
     g.shift = { ticks: 0, target: 'all', unit: g.shift.unit ?? PPQ / 4 };
+    g.range = null;
     g.lastResult = null;
     let bpm = p.bpm ?? 100;
     try {
@@ -417,6 +425,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     renderPracticeHeader();
     renderNav();
     renderShiftUI();
+    renderRangeUI();
     syncPrefsUI();
     setBpm(bpm);
     await renderPracticeNotation();
@@ -497,6 +506,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       box.innerHTML = '<span class="cursor"></span>';
       overlay.appendChild(box);
     });
+    markRange();
     drawJudgments();
   }
 
@@ -527,7 +537,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     const out = [];
     phrase.measures.forEach((m, mi) => {
       const ticks = [...new Set(m.notes.map((n) => n.tick))].sort((a, b) => a - b);
-      for (const tick of ticks) out.push({ measure: mi, tick });
+      for (const tick of ticks) out.push({ measure: mi, tick, insts: m.notes.filter((n) => n.tick === tick).map((n) => n.inst) });
     });
     return out;
   }
@@ -561,11 +571,12 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   // ------------------------------------------------------------ テンポ
 
   let liveRestart = null;
-  function setBpm(v) {
+  function setBpm(v, { quiet = false } = {}) {
     const prev = g.bpm;
     g.bpm = Math.min(300, Math.max(30, Math.round(Number(v) || 100)));
     // ライブ採点中にテンポを変えたら、新しいテンポで数え直す (スライダーを動かしている間は待つ)
-    if (g.mode === 'live' && prev !== g.bpm) {
+    // quiet: 自動テンポアップで演奏中に変わったとき (数え直さない)
+    if (g.mode === 'live' && prev !== g.bpm && !quiet) {
       clearTimeout(liveRestart);
       liveRestart = setTimeout(() => {
         if (g.mode !== 'live') return;
@@ -576,7 +587,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     $('pv-bpm').value = g.bpm;
     $('pv-bpm-range').value = g.bpm;
     $('pv-bpm-range').style.setProperty('--fill', `${((g.bpm - 30) / 270) * 100}%`);
-    seq.bpm = g.bpm;
+    if (!quiet) seq.bpm = g.bpm;
     if (g.phrase) {
       try {
         localStorage.setItem(`drum-practice:phrase-bpm:${g.phrase.id}`, String(g.bpm));
@@ -601,8 +612,106 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     $('pv-video').checked = prefs.video;
     $('pv-facing').value = prefs.facing;
     $('pv-facing').disabled = !prefs.video;
+    $('pv-click-mode').value = prefs.clickMode;
+    $('pv-click-mode').disabled = !prefs.metronome;
+    $('pv-autoup').checked = prefs.autoUp;
+    $('pv-up-pass').value = String(prefs.upPass);
+    $('pv-up-step').value = String(prefs.upStep);
+    $('pv-up-pass').disabled = $('pv-up-step').disabled = !prefs.autoUp;
     updateButtons();
   }
+  $('pv-click-mode').innerHTML = CLICK_MODES.map((m) => `<option value="${m.id}">${m.label}</option>`).join('');
+  $('pv-click-mode').addEventListener('change', (e) => {
+    prefs.clickMode = e.target.value;
+    savePrefs();
+    restartLive();
+  });
+  $('pv-autoup').addEventListener('change', (e) => {
+    prefs.autoUp = e.target.checked;
+    savePrefs();
+    syncPrefsUI();
+  });
+  $('pv-up-pass').addEventListener('change', (e) => {
+    prefs.upPass = Number(e.target.value);
+    savePrefs();
+  });
+  $('pv-up-step').addEventListener('change', (e) => {
+    prefs.upStep = Number(e.target.value);
+    savePrefs();
+  });
+
+  /** ライブ採点中に設定を変えたら最初から数え直す */
+  function restartLive() {
+    if (g.mode !== 'live') return;
+    stopAll();
+    startLive();
+  }
+
+  // ------------------------------------------------------------ 一部の小節だけ練習
+
+  function practicePhrase() {
+    const v = variant();
+    if (!g.range) return v;
+    return { ...v, measures: v.measures.slice(g.range.from, g.range.to + 1) };
+  }
+
+  function setRange(from, to) {
+    const n = g.phrase.measures.length;
+    from = Math.max(0, Math.min(n - 1, from));
+    to = Math.max(from, Math.min(n - 1, to));
+    g.range = from === 0 && to === n - 1 ? null : { from, to };
+    renderRangeUI();
+    markRange();
+    updateButtons();
+    restartLive();
+  }
+
+  function renderRangeUI() {
+    const n = g.phrase.measures.length;
+    $('pv-range-row').classList.toggle('hidden', n < 2);
+    const opts = Array.from({ length: n }, (_, i) => `<option value="${i}">${i + 1}小節目</option>`).join('');
+    $('pv-range-from').innerHTML = opts;
+    $('pv-range-to').innerHTML = opts;
+    $('pv-range-from').value = String(g.range?.from ?? 0);
+    $('pv-range-to').value = String(g.range?.to ?? n - 1);
+    $('pv-range-banner').classList.toggle('hidden', !g.range);
+    if (g.range) {
+      const { from, to } = g.range;
+      $('pv-range-label').textContent = `${from === to ? `${from + 1}小節目` : `${from + 1}〜${to + 1}小節目`}だけ練習中 (手本・ライブ採点)`;
+    }
+  }
+
+  /** 練習しない小節を薄くする */
+  function markRange() {
+    $('pv-overlay')
+      .querySelectorAll('.mbox')
+      .forEach((el) => {
+        const i = Number(el.dataset.measure);
+        el.classList.toggle('out-range', !!g.range && (i < g.range.from || i > g.range.to));
+      });
+  }
+
+  $('pv-range-from').addEventListener('change', (e) => {
+    const from = Number(e.target.value);
+    setRange(from, Math.max(from, Number($('pv-range-to').value)));
+  });
+  $('pv-range-to').addEventListener('change', (e) => {
+    const to = Number(e.target.value);
+    setRange(Math.min(to, Number($('pv-range-from').value)), to);
+  });
+  $('pv-range-clear').addEventListener('click', () => setRange(0, g.phrase.measures.length - 1));
+
+  // 分析の「この小節をループ練習」
+  function onWeakClick(e) {
+    const b = e.target.closest('[data-weak]');
+    if (!b) return;
+    const m = Number(b.dataset.weak);
+    setRange(m, m);
+    toast(`${m + 1}小節目だけを繰り返します。ライブ採点(◎)で練習しましょう`, 3500);
+    if (g.mode !== 'live') document.querySelector('.pv-buttons')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  $('pv-result').addEventListener('click', onWeakClick);
+  $('pv-live-panel').addEventListener('click', onWeakClick);
   $('pv-video').addEventListener('change', (e) => {
     prefs.video = e.target.checked;
     savePrefs();
@@ -717,6 +826,11 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     if (g.mode === 'live') stopLive();
     if (player.playing) player.stop();
     player.drumsMuted = false;
+    seq.clickMode = 'all';
+    seq.restSilence = false;
+    seq.nextBpm = null;
+    seq.onWrap = null;
+    g.playRange = null;
     g.mode = 'idle';
     updateButtons();
   }
@@ -741,7 +855,8 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     if (g.phrase) renderNav();
     $('pv-listen').disabled = g.mode === 'record' || g.mode === 'calibrate';
     $('pv-live').disabled = g.mode === 'record' || g.mode === 'calibrate';
-    $('pv-record').disabled = g.mode === 'live' || g.mode === 'calibrate';
+    $('pv-record').disabled = g.mode === 'live' || g.mode === 'calibrate' || !!g.range;
+    if (g.range) $('pv-record').title = '一部の小節だけ練習しているときは録音できません (全体に戻すと録音できます)';
   }
 
   $('pv-listen').addEventListener('click', async () => {
@@ -750,7 +865,8 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       return;
     }
     stopAll();
-    const v = variant();
+    const v = practicePhrase();
+    g.playRange = { from: g.range?.from ?? 0, len: v.measures.length };
     player.setScore(v);
     seq.bpm = g.bpm;
     seq.metronome = prefs.metronome;
@@ -790,29 +906,49 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     startLive();
   });
 
+  // ループごとのテンポ (自動テンポアップで途中から変わる) から時刻を求める
+  const segOfLoop = (L, l) => L.segs.reduce((s, x) => (x.loop <= l ? x : s), L.segs[0]);
+  const loopStart = (L, l) => {
+    const s = segOfLoop(L, l);
+    return s.start + (l - s.loop) * s.dur;
+  };
+  const loopAt = (L, t) => {
+    const s = L.segs.reduce((a, x) => (x.start <= t ? x : a), L.segs[0]);
+    return s.loop + Math.floor((t - s.start) / s.dur);
+  };
+  const noteTime = (L, l, i) => loopStart(L, l) + (L.oneTicks[i] / L.total) * segOfLoop(L, l).dur;
+
   function startLive() {
-    const phrase = variant();
+    const phrase = practicePhrase();
     player.setScore(phrase);
     seq.bpm = g.bpm;
     seq.metronome = true; // ライブ採点はメトロノームを鳴らし続ける
+    seq.clickMode = prefs.clickMode;
+    seq.restSilence = true;
     seq.loop = { enabled: true, start: 0, end: phrase.measures.length - 1 };
     seq.tempoUp = { ...seq.tempoUp, enabled: false };
+    seq.nextBpm = null;
     player.countIn = true;
     player.drumsMuted = !prefs.guide;
+    g.playRange = { from: g.range?.from ?? 0, len: phrase.measures.length };
     player.play(0);
     g.mode = 'live';
     updateButtons();
 
-    const spt = 60 / (g.bpm * PPQ);
     const mt = measureTicks(phrase.timeSig);
+    const total = phrase.measures.length * mt;
+    const durOf = (bpm) => (total * 60) / (bpm * PPQ);
     const lat = savedLatency(prefs.headphones ? 'headphones' : 'speaker') ?? latency();
-    const one = expectedOnsets(phrase).map((o) => (o.measure * mt + o.tick) * spt);
-    liveState = {
+    const ons = expectedOnsets(phrase);
+    const L = {
       phrase,
-      one,
-      start: player.startTime + mt * spt, // カウントインの後
-      dur: phrase.measures.length * mt * spt,
+      ons,
+      oneTicks: ons.map((o) => o.measure * mt + o.tick),
+      total,
+      // カウントインの後からループ 0
+      segs: [{ loop: 0, start: player.startTime + (mt * 60) / (g.bpm * PPQ), bpm: g.bpm, dur: durOf(g.bpm) }],
       lat,
+      clickMode: prefs.clickMode,
       judged: new Map(), // "ループ:番号" → { grade, offset }
       loopDone: new Set(),
       counts: { perfect: 0, great: 0, good: 0, miss: 0 },
@@ -821,16 +957,33 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       shownLoop: -1,
       listener: null,
     };
-    liveState.listener = new LiveListener(player.ctx, g.recorder.source, { sensitivity: prefs.sensitivity, onHit: (t) => liveHit(t - lat) });
-    liveState.listener.start();
+    liveState = L;
+    // 自動テンポアップ: シーケンサーがループの先頭でテンポを変えたら、そこからの時刻の数え方を変える
+    seq.onWrap = (time, bpm) => {
+      if (liveState !== L) return;
+      const last = L.segs[L.segs.length - 1];
+      if (bpm === last.bpm) return;
+      L.segs.push({ loop: last.loop + Math.round((time - last.start) / last.dur), start: time, bpm, dur: durOf(bpm) });
+      setTimeout(
+        () => {
+          if (liveState !== L) return;
+          setBpm(bpm, { quiet: true });
+          toast(`合格! ♩=${bpm} に上げました`, 2000);
+        },
+        Math.max(0, (time - player.ctx.currentTime) * 1000),
+      );
+    };
+    L.listener = new LiveListener(player.ctx, g.recorder.source, { sensitivity: prefs.sensitivity, onHit: (t) => liveHit(t - lat) });
+    L.listener.start();
     $('pv-live-panel').classList.remove('hidden');
     $('pv-live-last').textContent = 'カウントのあとに叩いてください';
     $('pv-live-last').className = 'live-last';
+    $('pv-live-advice').classList.add('hidden');
     renderLiveStats();
   }
 
   // 開発中だけ: テストから打音を入れられるようにする
-  if (import.meta.env?.DEV) window.__drumLive = { hit: (t) => liveHit(t), state: () => liveState };
+  if (import.meta.env?.DEV) window.__drumLive = { hit: (t) => liveHit(t), state: () => liveState, noteTime: (l, i) => noteTime(liveState, l, i) };
 
   function stopLive() {
     liveState?.listener?.stop();
@@ -843,14 +996,14 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   function liveHit(t) {
     const L = liveState;
     if (!L) return;
-    const loop = Math.floor((t - L.start) / L.dur);
+    const loop = loopAt(L, t);
     let best = null;
     for (let l = loop - 1; l <= loop + 1; l++) {
       if (l < 0) continue;
-      L.one.forEach((rel, i) => {
+      L.oneTicks.forEach((_, i) => {
         const key = `${l}:${i}`;
         if (L.judged.has(key)) return;
-        const d = t - (L.start + l * L.dur + rel);
+        const d = t - noteTime(L, l, i);
         if (Math.abs(d) <= WINDOWS.good && (!best || Math.abs(d) < Math.abs(best.d))) best = { key, d, l };
       });
     }
@@ -878,12 +1031,12 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     if (!L || g.mode !== 'live') return;
     // 叩いた音が届くまでの遅れの分だけ待ってから Miss にする
     const now = player.ctx.currentTime - L.lat - 0.05;
-    const loopNow = Math.floor((now - L.start) / L.dur);
+    const loopNow = loopAt(L, now);
     for (let l = Math.max(0, loopNow - 1); l <= loopNow; l++) {
-      L.one.forEach((rel, i) => {
+      L.oneTicks.forEach((_, i) => {
         const key = `${l}:${i}`;
         if (L.judged.has(key)) return;
-        if (L.start + l * L.dur + rel + WINDOWS.good < now) {
+        if (noteTime(L, l, i) + WINDOWS.good < now) {
           L.judged.set(key, { grade: 'miss', offset: null });
           L.counts.miss++;
           L.combo = 0;
@@ -891,37 +1044,70 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
         }
       });
       // 1ループ分そろったら点数を出す
-      if (!L.loopDone.has(l) && L.one.every((_, i) => L.judged.has(`${l}:${i}`))) {
+      if (!L.loopDone.has(l) && L.oneTicks.every((_, i) => L.judged.has(`${l}:${i}`))) {
         L.loopDone.add(l);
-        const js = L.one.map((_, i) => L.judged.get(`${l}:${i}`));
-        const pts = js.reduce((s, j) => s + ({ perfect: 1, great: 0.8, good: 0.45, miss: 0 })[j.grade], 0);
+        const js = L.oneTicks.map((_, i) => L.judged.get(`${l}:${i}`));
+        const pts = js.reduce((sum, j) => sum + ({ perfect: 1, great: 0.8, good: 0.45, miss: 0 })[j.grade], 0);
         L.prevScore = Math.round((pts / js.length) * 100);
+        // 合格したら次のループの頭からテンポを上げる (上げる前のテンポのループだけで判断する)
+        if (prefs.autoUp && L.prevScore >= prefs.upPass && !seq.nextBpm && segOfLoop(L, l).bpm === seq.bpm && seq.bpm < 300) {
+          seq.nextBpm = Math.min(300, seq.bpm + prefs.upStep);
+        }
+        renderLiveAdvice(l);
         renderLiveStats();
       }
     }
     // 楽譜の上の印: 今のループの判定
-    const showLoop = Math.max(0, Math.floor((player.ctx.currentTime - L.start) / L.dur));
+    const showLoop = Math.max(0, loopAt(L, player.ctx.currentTime));
     drawLiveJudgments(showLoop);
+  }
+
+  /** 直近 4ループの判定から傾向とアドバイスを出す */
+  function renderLiveAdvice(last) {
+    const L = liveState;
+    const first = Math.max(0, last - 3);
+    const judgments = [];
+    for (let l = first; l <= last; l++) L.oneTicks.forEach((_, i) => judgments.push(L.judged.get(`${l}:${i}`)));
+    const M = L.phrase.measures.length;
+    const a = analyzeTake({
+      judgments,
+      onsets: L.ons,
+      measures: M,
+      beatTicks: ticksPerBeat(L.phrase.timeSig),
+      restBar: L.clickMode !== 'all' ? (b) => isRestBar(L.clickMode, b + first * M) : null,
+    });
+    const el = $('pv-live-advice');
+    if (!a?.tips.length) {
+      el.classList.add('hidden');
+      return;
+    }
+    const from = g.range?.from ?? 0;
+    const weak = !g.range && a.weak[0];
+    el.innerHTML = `<small>直近${last - first + 1}ループの傾向</small><ul>${a.tips.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>${
+      weak ? `<button class="btn btn-ghost small" data-weak="${weak.measure + from}">${weak.measure + from + 1}小節目だけループ練習</button>` : ''
+    }`;
+    el.classList.remove('hidden');
   }
 
   function drawLiveJudgments(loop) {
     const L = liveState;
     if (!g.notation) return;
     const overlay = $('pv-overlay');
-    const onsets = expectedOnsets(L.phrase);
+    const from = g.playRange?.from ?? 0;
     if (L.shownLoop !== loop) {
       overlay.querySelectorAll('.judge').forEach((el) => el.remove());
       L.shownLoop = loop;
       L.drawn = new Set();
     }
-    onsets.forEach((o, i) => {
+    L.ons.forEach((o, i) => {
       const j = L.judged.get(`${loop}:${i}`);
-      if (!j || L.drawn.has(i) || !g.notation.boxes[o.measure]) return;
+      const mi = o.measure + from;
+      if (!j || L.drawn.has(i) || !g.notation.boxes[mi]) return;
       L.drawn.add(i);
-      const box = g.notation.boxes[o.measure];
+      const box = g.notation.boxes[mi];
       const el = document.createElement('div');
       el.className = `judge ${j.grade}`;
-      el.style.left = `${g.notation.cursorX(o.measure, o.tick)}px`;
+      el.style.left = `${g.notation.cursorX(mi, o.tick)}px`;
       el.style.top = `${box.y + 2}px`;
       overlay.appendChild(el);
     });
@@ -930,8 +1116,8 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   function renderLiveStats() {
     const L = liveState;
     if (!L) return;
-    const loop = Math.max(0, Math.floor((player.ctx.currentTime - L.start) / L.dur)) + 1;
-    $('pv-live-loop').textContent = player.ctx.currentTime < L.start ? '-' : String(loop);
+    const now = player.ctx.currentTime;
+    $('pv-live-loop').textContent = now < L.segs[0].start ? '-' : String(loopAt(L, now) + 1);
     $('pv-live-prev').textContent = L.prevScore != null ? `${L.prevScore}点` : '-';
     $('pv-live-combo').textContent = String(L.combo);
     const mean = L.offsets.length ? L.offsets.reduce((a, b) => a + b, 0) / L.offsets.length : null;
@@ -1052,6 +1238,8 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     player.setScore(score);
     seq.bpm = g.bpm;
     seq.metronome = prefs.metronome;
+    seq.clickMode = prefs.clickMode;
+    seq.restSilence = true;
     seq.loop = { enabled: false, start: 0, end: 0 };
     seq.tempoUp = { ...seq.tempoUp, enabled: false };
     player.countIn = true;
@@ -1079,11 +1267,15 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       for (const o of one) expected.push(start + ((l * phrase.measures.length + o.measure) * mt + o.tick) * spt);
     }
     const end = start + loops * phrase.measures.length * mt * spt;
-    // メトロノームを鳴らす予定の時刻 (カウントインから最後まで、1拍ごと)
-    const beatSec = (60 / g.bpm) * (4 / phrase.timeSig.beatUnit);
-    const totalBeats = phrase.timeSig.beats * (1 + loops * phrase.measures.length);
-    const clicks = prefs.metronome ? Array.from({ length: totalBeats }, (_, k) => ({ time: player.startTime + k * beatSec, accent: k % phrase.timeSig.beats === 0 })) : [];
-    const job = { phrase, loops, expected, start, end, bpm: g.bpm, clicks, cancelled: false };
+    // メトロノームを鳴らす予定の時刻 (カウントインから最後まで。間引きも反映)
+    const clicks = [];
+    if (prefs.metronome) {
+      const bt = ticksPerBeat(phrase.timeSig);
+      for (let bar = -1; bar < loops * phrase.measures.length; bar++) {
+        for (const c of clickTicks(prefs.clickMode, bar, phrase.timeSig.beats, bt)) clicks.push({ time: start + (bar * mt + c.tick) * spt, accent: c.accent });
+      }
+    }
+    const job = { phrase, loops, expected, start, end, bpm: g.bpm, clicks, clickMode: prefs.metronome ? prefs.clickMode : 'all', cancelled: false };
     recordJob = job;
     const wait = () => {
       if (job.cancelled) return;
@@ -1126,6 +1318,13 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     const hits = onsets.map((o) => ({ time: rec.pcmStart + o.time - lat, level: o.level })).filter((h) => h.time >= lo && h.time <= hi);
     const result = scoreTake(job.expected, hits);
     result.loops = job.loops;
+    const analysis = analyzeTake({
+      judgments: result.judgments,
+      onsets: expectedOnsets(job.phrase),
+      measures: job.phrase.measures.length,
+      beatTicks: ticksPerBeat(job.phrase.timeSig),
+      restBar: job.clickMode !== 'all' ? (b) => isRestBar(job.clickMode, b) : null,
+    });
     // 聞き返し用の音 (録画でないとき): 採点に使った録音から作り、メトロノームを入れるならぴったりの位置に置く
     let blob = rec.blob;
     let mime = rec.mime;
@@ -1161,6 +1360,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       video: rec.isVideo,
       latency: lat,
       latMode: currentLatMode(),
+      clickMode: job.clickMode,
       timeline: rec.isVideo ? videoTimeline(job, result, hits, rec.mediaStart) : undefined,
     };
     try {
@@ -1172,7 +1372,13 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     const after = allStats();
     const newLevel = levelOf(after.xp).level;
     g.lastResult = result;
-    showResult(result, take, { newBest: take.score > prevBest && prevBest > 0, firstTake: !before.phrases[job.phrase.id], levelUp: newLevel > prevLevel ? newLevel : null, xp: xpOf(take) });
+    // 合格したら次の録音のテンポを上げておく
+    let upTo = null;
+    if (prefs.autoUp && take.score >= prefs.upPass && g.bpm < 300 && g.phrase?.id === job.phrase.id) {
+      upTo = Math.min(300, job.bpm + prefs.upStep);
+      setBpm(upTo);
+    }
+    showResult(result, take, { newBest: take.score > prevBest && prevBest > 0, firstTake: !before.phrases[job.phrase.id], levelUp: newLevel > prevLevel ? newLevel : null, xp: xpOf(take), analysis, upTo });
     drawJudgments();
     renderPracticeHeader();
     await refreshHistory();
@@ -1222,7 +1428,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     }
   }
 
-  function showResult(r, take, { newBest, levelUp, xp }) {
+  function showResult(r, take, { newBest, levelUp, xp, analysis, upTo }) {
     const el = $('pv-result');
     el.classList.remove('hidden');
     const tendency =
@@ -1230,6 +1436,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     const banners = [];
     if (levelUp) banners.push(`<div class="banner level">レベルアップ! Lv${levelUp}</div>`);
     if (newBest) banners.push('<div class="banner best">自己ベスト更新!</div>');
+    if (upTo) banners.push(`<div class="banner up">合格! 次は ♩=${upTo} に上げました</div>`);
     el.innerHTML = `
       ${banners.join('')}
       <div class="result-main">
@@ -1248,9 +1455,30 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
         <div><small>使った補正値</small><b>${take.latency != null ? `${Math.round(take.latency * 1000)}ms` : '-'}</b><small>${LAT_MODES.find((m) => m.id === take.latMode)?.label ?? ''}</small></div>
       </div>
       ${timingStrip(r)}
+      ${analysisHtml(analysis)}
       <audio controls src="${URL.createObjectURL(take.blob)}"></audio>
       <p class="note">楽譜の上の印は最後の1回分の判定です (緑 Perfect / 青 Great / 黄 Good / 赤 Miss)。</p>`;
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /** 詳しい分析 (アドバイス・楽器別・拍の位置別・苦手な小節) */
+  function analysisHtml(a) {
+    if (!a) return '';
+    const cls = (m) => (m == null ? '' : m < -0.008 ? 'early' : m > 0.008 ? 'late' : 'just');
+    const row = (x) =>
+      `<tr><th>${esc(x.name)}</th><td class="${cls(x.mean)}">${x.mean == null ? '-' : msStr(x.mean)}</td><td>${x.spread == null ? '-' : `±${Math.round(x.spread * 1000)}ms`}</td><td>${x.miss ? `${x.miss}/${x.n}` : '0'}</td></tr>`;
+    const table = (title, rows) =>
+      rows.length ? `<h4>${title}</h4><table class="an-table"><thead><tr><th></th><th>平均のずれ</th><th>ばらつき</th><th>Miss</th></tr></thead><tbody>${rows.map(row).join('')}</tbody></table>` : '';
+    const gap = a.gap ? table('クリックの有無', [{ name: 'クリックあり', ...a.gap.click }, { name: 'クリックなし', ...a.gap.rest }]) : '';
+    const drift = a.drift != null && Math.abs(a.drift) >= 0.008 ? `<p class="note">前半→後半で ${msStr(a.drift)} (${a.drift < 0 ? 'だんだん走っています' : 'だんだんもたっています'})</p>` : '';
+    const weak = a.weak.length
+      ? `<h4>苦手な小節</h4><div class="an-weak">${a.weak.map((w) => `<button class="btn btn-ghost small" data-weak="${w.measure}">${w.measure + 1}小節目 (${w.score}点) をループ練習</button>`).join('')}</div>`
+      : '';
+    return `<details class="analysis" open><summary>詳しい分析</summary>
+      ${a.tips.length ? `<ul class="an-tips">${a.tips.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+      ${gap}${drift}${table('楽器別', a.byInst)}${table('拍の位置別', a.byPos)}${weak}
+      <p class="note">ずれは + が遅い、− が早い。ばらつきはプロのレコーディングで ±10ms 前後が目安です。</p>
+    </details>`;
   }
 
   /** 各音のずれ (早い/遅い) を並べた図 */
@@ -1433,7 +1661,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       overlay.querySelectorAll('.mbox.playing').forEach((el) => el.classList.remove('playing'));
       if (pos && pos.measure >= 0 && (g.mode === 'listen' || g.mode === 'record' || g.mode === 'live')) {
         const nm = g.notation.boxes.length;
-        const mi = pos.measure % nm;
+        const mi = g.playRange ? g.playRange.from + (pos.measure % g.playRange.len) : pos.measure % nm;
         const box = overlay.querySelector(`.mbox[data-measure="${mi}"]`);
         if (box) {
           box.classList.add('playing');

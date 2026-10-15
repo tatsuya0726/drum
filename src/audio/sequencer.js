@@ -1,4 +1,5 @@
 import { PPQ } from '../drums.js';
+import { clickTicks, isRestBar } from './clicks.js';
 
 export function ticksPerBeat(timeSig) {
   return (PPQ * 4) / timeSig.beatUnit;
@@ -21,6 +22,10 @@ export class Sequencer {
     this.tempoUp = { enabled: false, step: 2, max: 160 };
     this.mutes = new Set();
     this.onLoop = null; // ループで先頭に戻ったとき (bpm 変更の通知用)
+    this.clickMode = 'all'; // メトロノームの間引き (clicks.js)
+    this.restSilence = false; // クリックを休む小節では手本のドラムも鳴らさない
+    this.nextBpm = null; // 次にループの先頭へ戻るときに変えるテンポ
+    this.onWrap = null; // (time, bpm) ループで先頭に戻った時刻
     this.running = false;
   }
 
@@ -31,6 +36,7 @@ export class Sequencer {
     this.time = time;
     this.countIn = countIn ? 1 : 0;
     this.countTick = 0;
+    this.bar = 0; // カウントの後の通し小節番号 (ループしても増える)
     this.running = true;
     this.finished = false;
   }
@@ -62,22 +68,30 @@ export class Sequencer {
         break;
       }
       out.push({ type: 'pos', time: this.time, measure: this.measure, tick: this.tick });
-      if (this.metronome && this.tick % beatTicks === 0) {
-        out.push({ type: 'click', time: this.time, accent: this.tick === 0, measure: this.measure, tick: this.tick });
-      }
+      const clicks = this.metronome ? clickTicks(this.clickMode, this.bar, ts.beats, beatTicks) : [];
+      const click = clicks.find((c) => c.tick === this.tick);
+      if (click) out.push({ type: 'click', time: this.time, accent: click.accent, measure: this.measure, tick: this.tick });
+      const rest = this.restSilence && isRestBar(this.clickMode, this.bar);
       for (const n of m.notes) {
-        if (n.tick === this.tick && !this.mutes.has(n.inst)) {
+        if (n.tick === this.tick && !rest && !this.mutes.has(n.inst)) {
           out.push({ type: 'note', time: this.time, inst: n.inst, vel: n.vel ?? 1, measure: this.measure, tick: this.tick });
         }
       }
       // 次のイベント位置 (次の音 or 次の拍)
       let next = (Math.floor(this.tick / beatTicks) + 1) * beatTicks;
       for (const n of m.notes) if (n.tick > this.tick && n.tick < next) next = n.tick;
+      for (const c of clicks) if (c.tick > this.tick && c.tick < next) next = c.tick;
       if (next >= mTicks) {
         this.time += (mTicks - this.tick) * this.secPerTick;
         this.tick = 0;
+        this.bar++;
         if (this.loop.enabled && this.measure === this.loop.end) {
           this.measure = this.loop.start;
+          if (this.nextBpm) {
+            this.bpm = this.nextBpm;
+            this.nextBpm = null;
+          }
+          this.onWrap?.(this.time, this.bpm);
           if (this.tempoUp.enabled && this.bpm < this.tempoUp.max) {
             this.bpm = Math.min(this.tempoUp.max, this.bpm + this.tempoUp.step);
             this.onLoop?.(this.bpm);

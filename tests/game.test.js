@@ -173,3 +173,79 @@ describe('playback mixdown', () => {
     }
   });
 });
+
+import { analyzeTake } from '../src/game/analysis.js';
+import { clickTicks, isRestBar } from '../src/audio/clicks.js';
+import { Sequencer } from '../src/audio/sequencer.js';
+
+describe('タイミングの傾向分析', () => {
+  // 4/4 1小節 × 2小節: 8分のハイハット、1・3拍目キック、2・4拍目スネア
+  const bt = 240;
+  const onsets = [];
+  for (let m = 0; m < 2; m++)
+    for (let i = 0; i < 8; i++) {
+      const tick = i * 120;
+      const insts = ['hhc'];
+      if (i === 0 || i === 4) insts.push('kick');
+      if (i === 2 || i === 6) insts.push('snare');
+      onsets.push({ measure: m, tick, insts });
+    }
+  it('楽器別・裏拍・苦手な小節を出す', () => {
+    // 裏拍は 30ms 遅い、2小節目は Miss が多い
+    const judgments = [];
+    for (let l = 0; l < 2; l++)
+      onsets.forEach((o) => {
+        const late = o.tick % bt ? 0.03 : 0;
+        const miss = o.measure === 1 && o.tick >= 480;
+        judgments.push(miss ? { offset: null, grade: 'miss' } : { offset: late, grade: late ? 'great' : 'perfect' });
+      });
+    const a = analyzeTake({ judgments, onsets, measures: 2, beatTicks: bt });
+    const and = a.byPos.find((p) => p.id === 'and');
+    expect(Math.round(and.mean * 1000)).toBe(30);
+    expect(a.byPos.find((p) => p.id === 'down').mean).toBe(0);
+    expect(a.weak[0].measure).toBe(1);
+    expect(a.byInst.map((x) => x.id)).toEqual(['kick', 'snare', 'hh']);
+    expect(a.tips.length).toBeGreaterThan(0);
+  });
+  it('クリックを休んだ小節のずれを比べる', () => {
+    const judgments = [];
+    for (let l = 0; l < 2; l++) onsets.forEach((o) => judgments.push({ offset: l === 1 ? -0.025 : 0, grade: 'perfect' }));
+    const a = analyzeTake({ judgments, onsets, measures: 2, beatTicks: bt, restBar: (b) => isRestBar('gap2', b) });
+    expect(Math.round(a.gap.rest.mean * 1000)).toBe(-25);
+    expect(a.gap.click.mean).toBe(0);
+    expect(a.tips[0]).toContain('走って');
+  });
+});
+
+describe('クリックの間引き', () => {
+  it('小節ごとの鳴らし方', () => {
+    expect(clickTicks('all', 3, 4, 240).length).toBe(4);
+    expect(clickTicks('gap1', 0, 4, 240).length).toBe(4);
+    expect(clickTicks('gap1', 1, 4, 240).length).toBe(0);
+    expect(clickTicks('gap1', -1, 4, 240).length).toBe(4); // カウントは鳴らす
+    expect(clickTicks('24', 0, 4, 240).map((c) => c.tick)).toEqual([240, 720]);
+    expect(clickTicks('and', 0, 4, 240).map((c) => c.tick)).toEqual([120, 360, 600, 840]);
+    expect(isRestBar('gap2', 2)).toBe(true);
+    expect(isRestBar('gap2', 4)).toBe(false);
+  });
+  it('シーケンサーが休む小節でクリックと手本を止め、ループの先頭でテンポを変える', () => {
+    const seq = new Sequencer({ timeSig: { beats: 4, beatUnit: 4 }, measures: [{ notes: [{ tick: 0, inst: 'kick' }] }] });
+    seq.loop = { enabled: true, start: 0, end: 0 };
+    seq.clickMode = 'gap1';
+    seq.restSilence = true;
+    const wraps = [];
+    seq.onWrap = (t, bpm) => wraps.push({ t, bpm });
+    seq.bpm = 60;
+    seq.start(0, 0, false);
+    seq.nextBpm = 120;
+    const ev = seq.advance(5.9);
+    const bar0 = ev.filter((e) => e.time < 4);
+    expect(bar0.filter((e) => e.type === 'click').length).toBe(4);
+    expect(bar0.filter((e) => e.type === 'note').length).toBe(1);
+    // 2小節目 (4秒〜) は 120BPM で 2秒、クリックも手本も無し
+    const bar1 = ev.filter((e) => e.time >= 4 && e.time < 6);
+    expect(bar1.filter((e) => e.type === 'click' || e.type === 'note').length).toBe(0);
+    expect(wraps[0]).toEqual({ t: 4, bpm: 120 });
+    expect(wraps[1].t).toBeCloseTo(6);
+  });
+});
