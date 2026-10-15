@@ -83,6 +83,18 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
 
   // ------------------------------------------------------------ ハブ (ホーム)
 
+  // お気に入り (フレーズの id の並び)。消えないよう IndexedDB にも保存する
+  const FAV_KEY = 'drum-practice:favorites';
+  const favs = () => new Set(getSetting(FAV_KEY) ?? []);
+  function toggleFav(id) {
+    const list = [...(getSetting(FAV_KEY) ?? [])];
+    const i = list.indexOf(id);
+    if (i >= 0) list.splice(i, 1);
+    else list.push(id);
+    setSetting(FAV_KEY, list);
+    return i < 0;
+  }
+
   // ホームで選んでいるタブと難易度 (次に開いたときも同じ画面にする)
   const HUB_KEY = 'drum-practice:hub';
   const hub = (() => {
@@ -132,6 +144,10 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     // 種類ごとのタブ (基本ビート・16ビート…・マイフレーズ・取り込んだ教本)
     // 教本は一番よく使うので先頭に置く
     const tabs = [];
+    const favIds = getSetting(FAV_KEY) ?? [];
+    const all = [...mine, ...presets];
+    const favItems = favIds.map((id) => all.find((p) => p.id === id)).filter(Boolean);
+    if (favItems.length) tabs.push({ id: 'favs', name: '★ お気に入り', items: favItems });
     if (imported.length) tabs.push({ id: 'books', name: '教本', items: imported });
     if (own.length) tabs.push({ id: 'mine', name: 'マイフレーズ', items: own });
     tabs.push(...CATEGORIES.map((c) => ({ id: c.id, name: c.name, items: presets.filter((p) => p.category === c.id) })));
@@ -149,7 +165,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     bar.scrollLeft = Math.max(0, sel.offsetLeft - (bar.clientWidth - sel.offsetWidth) / 2);
 
     // 難易度のしぼり込み (レベルのあるフレーズだけ)
-    const levels = [...new Set(tab.items.map((p) => p.level).filter(Boolean))].sort((a, b) => a - b);
+    const levels = tab.id === 'favs' ? [] : [...new Set(tab.items.map((p) => p.level).filter(Boolean))].sort((a, b) => a - b);
     if (levels.length > 1) {
       if (hub.level && !levels.includes(hub.level)) hub.level = 0;
       const lvBar = document.createElement('div');
@@ -254,6 +270,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   }
 
   function phraseCard(p, st) {
+    const isFav = favs().has(p.id);
     const card = document.createElement('div');
     card.className = 'phrase-card';
     const best = st?.best ?? 0;
@@ -267,6 +284,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
         <b class="pc-title">${esc(p.title)}</b>
         <small>${st ? `ベスト ${st.best}点 · ${st.bestBpm}BPM · ${st.takes}回` : `目安 ♩=${p.bpm ?? 100} · まだ録音なし`}</small>
       </button>
+      <button class="icon-btn pc-fav ${isFav ? 'on' : ''}" data-fav="${esc(p.id)}" aria-label="${isFav ? 'お気に入りから外す' : 'お気に入りに追加'}" aria-pressed="${isFav}">${isFav ? '★' : '☆'}</button>
       ${p.mine ? `<button class="icon-btn pc-del" data-del-phrase="${esc(p.id)}" title="削除" aria-label="削除"><svg class="ic"><use href="#i-trash" /></svg></button>` : ''}`;
     return card;
   }
@@ -324,6 +342,16 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   });
 
   $('phrase-sections').addEventListener('click', (e) => {
+    const fav = e.target.closest('[data-fav]');
+    if (fav) {
+      const on = toggleFav(fav.dataset.fav);
+      toast(on ? 'お気に入りに追加しました' : 'お気に入りから外しました', 1800);
+      // タブの件数や有無も変わるので描き直す (スクロール位置は保つ)
+      const y = window.scrollY;
+      renderHub();
+      window.scrollTo(0, y);
+      return;
+    }
     const tabBtn = e.target.closest('[data-hub-tab]');
     if (tabBtn) {
       setHub({ tab: tabBtn.dataset.hubTab, level: 0 });
@@ -399,6 +427,8 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   function phraseList() {
     const p = g.phrase;
     if (!p) return [];
+    // お気に入りタブから開いたときはお気に入りの中で前後に動く
+    if (hub.tab === 'favs' && favs().has(p.id)) return (getSetting(FAV_KEY) ?? []).filter((id) => loadPhrase(id));
     if (p.preset) return PRESETS.filter((x) => x.category === p.category).map((x) => x.id);
     const { mine } = allPhrases();
     if (p.group) return mine.filter((x) => x.group === p.group).sort(byOrder).map((x) => x.id);
@@ -412,7 +442,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     $('pv-prev').disabled = blocked || i <= 0;
     $('pv-next').disabled = blocked || i < 0 || i >= list.length - 1;
     const p = g.phrase;
-    const where = p?.group ? `${p.group}${p.section ? ` · ${p.section}` : ''}` : p?.preset ? (CATEGORIES.find((c) => c.id === p.category)?.name ?? '') : 'マイフレーズ';
+    const where = hub.tab === 'favs' && favs().has(p?.id) ? 'お気に入り' : p?.group ? `${p.group}${p.section ? ` · ${p.section}` : ''}` : p?.preset ? (CATEGORIES.find((c) => c.id === p.category)?.name ?? '') : 'マイフレーズ';
     $('pv-pos').textContent = i >= 0 ? `${where}  ${i + 1} / ${list.length}` : '';
   }
 
@@ -434,6 +464,11 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       <span class="pc-stars ${stars ? '' : 'none'}">${starStr(stars)}</span>
       <span>${st ? `ベスト ${st.best}点 (${st.bestBpm}BPM) · 録音 ${st.takes}回${st.maxBpmCleared ? ` · 80点以上の最速 ${st.maxBpmCleared}BPM` : ''}` : 'まだ録音がありません'}</span>`;
     $('pv-edit').textContent = p.mine ? '編集' : 'コピーして編集';
+    const on = favs().has(p.id);
+    $('pv-fav').textContent = on ? '★' : '☆';
+    $('pv-fav').classList.toggle('on', on);
+    $('pv-fav').setAttribute('aria-pressed', String(on));
+    $('pv-fav').setAttribute('aria-label', on ? 'お気に入りから外す' : 'お気に入りに追加');
   }
 
   let notationModule = null;
@@ -500,6 +535,14 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   $('pv-back').addEventListener('click', () => {
     stopAll();
     setView('home');
+  });
+
+  $('pv-fav').addEventListener('click', () => {
+    if (!g.phrase) return;
+    const on = toggleFav(g.phrase.id);
+    renderPracticeHeader();
+    renderNav();
+    toast(on ? 'お気に入りに追加しました' : 'お気に入りから外しました', 1800);
   });
 
   $('pv-edit').addEventListener('click', () => {

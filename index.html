@@ -114,6 +114,7 @@
             <h2 id="pv-title"></h2>
             <div class="pv-meta" id="pv-meta"></div>
           </div>
+          <button class="icon-btn fav-btn" id="pv-fav" aria-label="お気に入りに追加" aria-pressed="false" title="お気に入り">☆</button>
           <button class="btn btn-ghost" id="pv-edit">編集</button>
         </div>
 
@@ -152,7 +153,6 @@
             </div>
             <div class="pv-shift">
               <h3>フレーズをずらす</h3>
-            <p class="note">全体や楽器ごとに音符単位でずらして、新しいパターンを作れます (フレーズの長さで一周します)。</p>
             <div class="row">
               <span>ずらすもの</span>
               <select id="pv-shift-target"></select>
@@ -453,7 +453,7 @@
         <label class="chk"><input type="checkbox" id="cmp-ref" checked /> 手本の音</label>
         <label class="chk"><input type="checkbox" id="cmp-self" checked /> 自分の音</label>
         <label class="chk"><input type="checkbox" id="cmp-overlay" checked /> 譜面とずれ</label>
-        <label class="cmp-nudge">映像の位置合わせ <input id="cmp-nudge" type="range" min="-300" max="300" step="10" value="0" /> <span id="cmp-nudge-val">0ms</span></label>
+        <label class="cmp-nudge">映像の位置合わせ <input id="cmp-nudge" type="range" min="-300" max="300" step="10" value="0" /> <button class="link-btn" id="cmp-nudge-val" title="0 に戻す">0ms</button></label>
         <button class="btn btn-accent" id="cmp-save">合成した動画を保存</button>
       </div>
       <p class="note cmp-note">上に手本の譜面と再生位置、下に「白い線 = 手本」「丸 = 自分が叩いた位置」と何ms ずれたかを表示します。手本の音は映像に合わせて鳴ります。</p>

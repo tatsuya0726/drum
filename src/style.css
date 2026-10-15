@@ -1429,6 +1429,8 @@ button.grid-label:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  /* 右上のお気に入りボタンのぶん空ける */
+  padding-right: 30px;
 }
 .pc-level {
   font-size: 11px;
@@ -1463,6 +1465,25 @@ button.grid-label:hover {
   bottom: 6px;
   width: 30px;
   height: 30px;
+}
+
+/* お気に入り (☆/★) */
+.pc-fav {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 32px;
+  height: 32px;
+}
+.fav-btn,
+.pc-fav {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-3);
+}
+.fav-btn.on,
+.pc-fav.on {
+  color: #f5b301;
 }
 
 /* ---------------------------------------------------------------- game: practice */
@@ -2469,14 +2490,23 @@ body[data-view='home'] .viewer {
   gap: 5px;
 }
 .cmp-nudge {
+  /* 値の文字の長さで行が折り返し直してスライダーが指の下から逃げないよう、専用の 1行にする */
+  flex: 1 1 100%;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: #a6abb8;
+  white-space: nowrap;
 }
 .cmp-nudge input {
-  width: 110px;
+  flex: 1;
+  min-width: 0;
   accent-color: var(--accent);
+}
+.cmp-nudge #cmp-nudge-val {
+  width: 4.5em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 .cmp-note {
   color: #8a90a0;

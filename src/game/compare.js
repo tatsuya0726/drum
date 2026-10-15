@@ -295,6 +295,11 @@ export async function openCompare({ take, phrase, player, renderScore }) {
     }
   };
   nudge.addEventListener('input', onNudge);
+  const onNudgeReset = () => {
+    nudge.value = '0';
+    onNudge();
+  };
+  $('cmp-nudge-val').addEventListener('click', onNudgeReset);
 
   // ---- 合成した映像を保存する (等速で最後まで再生しながら書き出す)
   const saveBtn = $('cmp-save');
@@ -369,6 +374,7 @@ export async function openCompare({ take, phrase, player, renderScore }) {
     $('cmp-rates').removeEventListener('click', onRate);
     for (const id of Object.keys(toggles)) $(id).removeEventListener('change', onToggle);
     nudge.removeEventListener('input', onNudge);
+    $('cmp-nudge-val').removeEventListener('click', onNudgeReset);
     saveBtn.removeEventListener('click', onSave);
     $('cmp-close').removeEventListener('click', close);
     video.removeAttribute('src');
