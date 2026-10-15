@@ -55,12 +55,21 @@ export class TakeRecorder {
     }
   }
 
-  start({ includeClick }) {
+  /**
+   * @param {{ includeClick: boolean, clickDelay?: number }} opts
+   *   clickDelay: 録音に混ぜるメトロノームを遅らせる秒数。マイクの音はタイミング補正の分だけ遅れて録音されるので、
+   *   メトロノームも同じだけ遅らせると、聞き返したときに叩いた音とメトロノームがそろう
+   */
+  start({ includeClick, clickDelay = 0 }) {
     this.chunks = [];
     this.pcm = [];
     this.pcmStart = null;
     this.includeClick = includeClick;
-    if (includeClick) this.clickBus.connect(this.recDest);
+    if (includeClick) {
+      this.clickDelayNode = this.ctx.createDelay(2);
+      this.clickDelayNode.delayTime.value = Math.max(0, Math.min(1.9, clickDelay));
+      this.clickBus.connect(this.clickDelayNode).connect(this.recDest);
+    }
 
     // 採点用 PCM
     const sink = this.ctx.createGain();
@@ -112,7 +121,10 @@ export class TakeRecorder {
       this.node.disconnect();
       this.node.port?.postMessage('stop');
       this.sink.disconnect();
-      if (this.includeClick) this.clickBus.disconnect(this.recDest);
+      if (this.includeClick) {
+        this.clickBus.disconnect(this.clickDelayNode);
+        this.clickDelayNode.disconnect();
+      }
     } catch {
       // 無視
     }

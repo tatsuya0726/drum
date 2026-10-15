@@ -769,7 +769,8 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     seq.tempoUp = { ...seq.tempoUp, enabled: false };
     player.countIn = true;
     player.drumsMuted = !prefs.guide;
-    g.recorder.start({ includeClick: prefs.metronome && prefs.clickInRec });
+    // 録音に入れるメトロノームはタイミング補正の値だけ遅らせて、録音した自分の音とそろえる
+    g.recorder.start({ includeClick: prefs.metronome && prefs.clickInRec, clickDelay: latency() });
     player.play(0);
     g.mode = 'record';
     updateButtons();
