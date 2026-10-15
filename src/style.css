@@ -1526,7 +1526,7 @@ button.grid-label:hover {
 }
 .pv-buttons {
   display: grid;
-  grid-template-columns: 52px 1fr 1fr 52px;
+  grid-template-columns: 48px 1fr 1fr 1fr 48px;
   gap: 10px;
   margin-bottom: 6px;
   align-items: center;
@@ -2547,4 +2547,68 @@ body.modal-open {
 .nowrap {
   white-space: nowrap;
   flex: none;
+}
+
+/* ライブ採点 */
+.big-btn.live {
+  background: var(--surface-2);
+}
+.big-btn.live .ic {
+  color: #22c55e;
+}
+.big-btn.live.active {
+  background: color-mix(in srgb, #22c55e 22%, var(--surface-2));
+  border-color: #22c55e;
+}
+.big-btn:disabled {
+  opacity: 0.35;
+}
+.live-panel {
+  margin: 4px 0 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.live-panel.hidden {
+  display: none;
+}
+.live-last {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  min-height: 32px;
+  color: var(--text-2);
+}
+.live-last.perfect {
+  color: var(--g-perfect);
+}
+.live-last.great {
+  color: var(--g-great);
+}
+.live-last.good {
+  color: var(--g-good);
+}
+.live-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  text-align: center;
+  margin: 8px 0;
+}
+.live-stats small {
+  display: block;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.live-stats b {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.live-counts {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
 }
