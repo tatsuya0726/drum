@@ -552,6 +552,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     prefs.video = e.target.checked;
     savePrefs();
     syncPrefsUI();
+    renderLatencyUI();
   });
   $('pv-facing').addEventListener('change', (e) => {
     prefs.facing = e.target.value;
@@ -706,10 +707,25 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
 
 
 
-  /** 保存済みの補正値 (秒)。mode を省くと今のイヤホン設定のもの */
+  // 補正値は「スピーカー / イヤホン」×「録音 / 録画」の 4通りを別々に持つ
+  // (録画ではカメラと一緒にマイクを開くので、スマホがマイクの処理を切り替えて遅れが変わることがある)
+  const LAT_MODES = [
+    { id: 'speaker', label: 'スピーカー' },
+    { id: 'headphones', label: 'イヤホン・ヘッドホン' },
+    { id: 'speaker-video', label: '録画・スピーカー' },
+    { id: 'headphones-video', label: '録画・イヤホン' },
+  ];
+  const currentLatMode = () => `${prefs.headphones ? 'headphones' : 'speaker'}${prefs.video ? '-video' : ''}`;
+
+  /** 保存済みの補正値 (秒)。mode を省くと今の設定のもの (録画用が未設定なら録音用を使う) */
   function savedLatency(mode) {
-    const v = getSetting(LAT_KEY + (mode ?? (prefs.headphones ? 'headphones' : 'speaker')));
-    return v == null || !Number.isFinite(Number(v)) ? null : Number(v);
+    const read = (m) => {
+      const v = getSetting(LAT_KEY + m);
+      return v == null || !Number.isFinite(Number(v)) ? null : Number(v);
+    };
+    if (mode) return read(mode);
+    const cur = currentLatMode();
+    return read(cur) ?? (cur.endsWith('-video') ? read(cur.replace('-video', '')) : null);
   }
 
   function setLatency(mode, sec) {
@@ -729,26 +745,28 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     return v == null ? '未調整' : `${Math.round(v * 1000)}ms`;
   }
 
-  // 設定パネルの「タイミング補正」: イヤホン / スピーカーそれぞれの値を数値で変えられる
+  // 設定パネルの「タイミング補正」: 4通りの値を数値で変えられる
   function renderLatencyUI() {
     $('hub-latency').textContent = latencyLabel();
-    for (const mode of ['speaker', 'headphones']) {
-      const v = savedLatency(mode);
-      const input = $(`lat-${mode}`);
+    for (const m of LAT_MODES) {
+      const v = savedLatency(m.id);
+      const input = $(`lat-${m.id}`);
       if (document.activeElement !== input) input.value = v == null ? '' : String(Math.round(v * 1000));
     }
-    $('lat-current').textContent = prefs.headphones ? 'イヤホン・ヘッドホン' : 'スピーカー';
+    const cur = LAT_MODES.find((m) => m.id === currentLatMode());
+    const own = savedLatency(cur.id) != null;
+    $('lat-current').textContent = own || !cur.id.endsWith('-video') ? cur.label : `${cur.label} (未設定のため ${LAT_MODES.find((m) => m.id === cur.id.replace('-video', '')).label} の値)`;
   }
-  for (const mode of ['speaker', 'headphones']) {
-    $(`lat-${mode}`).addEventListener('change', (e) => {
+  for (const m of LAT_MODES) {
+    $(`lat-${m.id}`).addEventListener('change', (e) => {
       const ms = e.target.value === '' ? null : Number(e.target.value);
       if (ms != null && (!Number.isFinite(ms) || ms < -200 || ms > 1000)) {
         toast('-200〜1000ms の範囲で入れてください');
         renderLatencyUI();
         return;
       }
-      setLatency(mode, ms == null ? null : ms / 1000);
-      toast(ms == null ? '補正値を消しました' : `${mode === 'speaker' ? 'スピーカー' : 'イヤホン'}の補正値を ${ms}ms にしました`);
+      setLatency(m.id, ms == null ? null : ms / 1000);
+      toast(ms == null ? `${m.label}の補正値を消しました` : `${m.label}の補正値を ${ms}ms にしました`);
     });
   }
   $('lat-measure').addEventListener('click', () => {
@@ -904,6 +922,8 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       blob,
       mime,
       video: rec.isVideo,
+      latency: lat,
+      latMode: currentLatMode(),
       timeline: rec.isVideo ? videoTimeline(job, result, hits, rec.mediaStart) : undefined,
     };
     try {
@@ -988,6 +1008,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
         <div><small>タイミングの傾向</small><b>${tendency}</b></div>
         <div><small>ばらつき</small><b>${r.spread ? `±${Math.round(r.spread * 1000)}ms` : '-'}</b></div>
         <div><small>テンポ</small><b>${take.bpm} BPM</b></div>
+        <div><small>使った補正値</small><b>${take.latency != null ? `${Math.round(take.latency * 1000)}ms` : '-'}</b><small>${LAT_MODES.find((m) => m.id === take.latMode)?.label ?? ''}</small></div>
       </div>
       ${timingStrip(r)}
       <audio controls src="${URL.createObjectURL(take.blob)}"></audio>
@@ -1158,7 +1179,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
         toast('うまく計れませんでした。クリックに合わせてもう一度叩いてみてください', 5000);
         return;
       }
-      setLatency(prefs.headphones ? 'headphones' : 'speaker', lat);
+      setLatency(currentLatMode(), lat);
       toast(`タイミング補正: ${Math.round(lat * 1000)}ms に設定しました`, 4000);
     };
     requestAnimationFrame(wait);

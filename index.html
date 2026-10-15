@@ -314,7 +314,15 @@
             <span><input id="lat-headphones" type="number" min="-200" max="1000" step="1" inputmode="numeric" placeholder="未調整" /> ms</span>
           </div>
           <div class="row">
-            <span class="note">今の設定 (スピーカー / イヤホン) で、クリックに合わせて 8回叩いて自動で測ります</span>
+            <span>録画モード・スピーカー</span>
+            <span><input id="lat-speaker-video" type="number" min="-200" max="1000" step="1" inputmode="numeric" placeholder="録音と同じ" /> ms</span>
+          </div>
+          <div class="row">
+            <span>録画モード・イヤホン</span>
+            <span><input id="lat-headphones-video" type="number" min="-200" max="1000" step="1" inputmode="numeric" placeholder="録音と同じ" /> ms</span>
+          </div>
+          <div class="row">
+            <span class="note">今の設定 (スピーカー / イヤホン、録画モードのオン / オフ) で、クリックに合わせて 8回叩いて自動で測ります。録画モードの値は録画モードをオンにして測ってください</span>
             <button class="btn nowrap" id="lat-measure">測る</button>
           </div>
         </section>
