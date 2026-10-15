@@ -2521,3 +2521,25 @@ body.modal-open {
 .photo-head .icon-btn:disabled {
   opacity: 0.3;
 }
+
+.update-banner {
+  position: fixed;
+  z-index: 90;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 8px 16px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.notation-error {
+  padding: 24px 16px;
+  color: #b42318;
+}

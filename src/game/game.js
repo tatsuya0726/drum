@@ -439,7 +439,15 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     await notationModule.loadNotationFonts();
     const v = variant();
     const el = $('pv-notation');
-    g.notation = notationModule.renderScore(el, v, { width: el.clientWidth });
+    try {
+      g.notation = notationModule.renderScore(el, v, { width: el.clientWidth });
+    } catch (err) {
+      console.error(err);
+      g.notation = null;
+      el.innerHTML = `<p class="note notation-error">譜面を表示できませんでした (${esc(err.message)})。ページを再読み込みしても直らないときは、このフレーズを教えてください。</p>`;
+      $('pv-overlay').innerHTML = '';
+      return;
+    }
     const overlay = $('pv-overlay');
     overlay.innerHTML = '';
     overlay.style.height = `${g.notation.height}px`;

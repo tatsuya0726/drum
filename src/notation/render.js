@@ -127,16 +127,30 @@ export function renderScore(container, score, { width, canvas } = {}) {
     if (i === score.measures.length - 1) stave.setEndBarType(VF.BarlineType.END);
     stave.setContext(ctx).draw();
 
-    const up = buildVoice(measure, ts, 'up');
-    const down = buildVoice(measure, ts, 'down');
-    const formatter = new Formatter();
-    formatter.joinVoices([up.voice, down.voice]);
-    const avail = stave.getNoteEndX() - stave.getNoteStartX() - 14;
-    formatter.format([up.voice, down.voice], Math.max(40, avail));
-    up.voice.draw(ctx, stave);
-    down.voice.draw(ctx, stave);
-    for (const b of [...up.beams, ...down.beams]) b.setContext(ctx).draw();
-    for (const t of [...up.tuplets, ...down.tuplets]) t.setContext(ctx).draw();
+    // 小節の外にはみ出した音 (壊れたデータ) は描かない。1小節が描けなくても他の小節は描く
+    const safe = { ...measure, notes: (measure.notes ?? []).filter((n) => n.tick >= 0 && n.tick < mTicks) };
+    let up;
+    let down;
+    try {
+      up = buildVoice(safe, ts, 'up');
+      down = buildVoice(safe, ts, 'down');
+      const formatter = new Formatter();
+      formatter.joinVoices([up.voice, down.voice]);
+      const avail = stave.getNoteEndX() - stave.getNoteStartX() - 14;
+      formatter.format([up.voice, down.voice], Math.max(40, avail));
+      up.voice.draw(ctx, stave);
+      down.voice.draw(ctx, stave);
+      for (const b of [...up.beams, ...down.beams]) b.setContext(ctx).draw();
+      for (const t of [...up.tuplets, ...down.tuplets]) t.setContext(ctx).draw();
+    } catch (err) {
+      console.error(`${i + 1}小節目を描けませんでした`, err);
+      ctx.save();
+      ctx.setFont('sans-serif', 13);
+      ctx.fillText('この小節は表示できません', stave.getNoteStartX() + 6, y + 45);
+      ctx.restore();
+      up = { notes: [] };
+      down = { notes: [] };
+    }
 
     // 再生カーソル用: 各音の tick と x 座標
     const points = [];
