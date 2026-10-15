@@ -3,6 +3,8 @@ import { INSTRUMENTS, PPQ, instrumentById } from '../drums.js';
 import { measureTicks, ticksPerBeat } from '../audio/sequencer.js';
 import { CLICK_MODES, clickTicks, isRestBar } from '../audio/clicks.js';
 import { analyzeTake } from './analysis.js';
+import { initSongImport } from './song-import.js';
+import { SongSync, deleteSong, songBuffer } from './songs.js';
 import { CATEGORIES, PRESETS, presetById } from './presets.js';
 import { shiftLabel, shiftMeasures } from './shift.js';
 import { TakeRecorder } from './recorder.js';
@@ -29,7 +31,7 @@ const GRADE = {
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const starStr = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
 
-const PREF_DEFAULTS = { loops: 2, metronome: true, clickInRec: false, guide: false, headphones: false, sensitivity: 0.5, video: false, facing: 'user', clickMode: 'all', autoUp: false, upPass: 90, upStep: 5 };
+const PREF_DEFAULTS = { loops: 2, metronome: true, clickInRec: false, guide: false, headphones: false, sensitivity: 0.5, video: false, facing: 'user', clickMode: 'all', autoUp: false, upPass: 90, upStep: 5, withSong: true, songVol: 0.8 };
 const msStr = (s) => `${s > 0 ? '+' : ''}${Math.round(s * 1000)}ms`;
 
 function loadPrefs() {
@@ -381,7 +383,11 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       const name = delGroup.dataset.delGroup;
       const ids = listDocs().filter((d) => d.group === name).map((d) => d.id);
       if (confirm(`「${name}」の${ids.length}個のフレーズを削除しますか? (録音は残ります)`)) {
+        const songs = new Set(ids.map((id) => loadDoc(id)?.song?.id).filter(Boolean));
         deleteDocs(ids);
+        // ほかのフレーズが使っていない曲のファイルも消す
+        const still = new Set(listDocs().map((d) => loadDoc(d.id)?.song?.id).filter(Boolean));
+        for (const id of songs) if (!still.has(id)) deleteSong(id).catch(() => {});
         renderHub();
       }
       return;
@@ -428,6 +434,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     renderRangeUI();
     syncPrefsUI();
     setBpm(bpm);
+    loadSongFor(p);
     await renderPracticeNotation();
     await refreshHistory();
   }
@@ -571,6 +578,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   // ------------------------------------------------------------ テンポ
 
   let liveRestart = null;
+  let listenRestart = null;
   function setBpm(v, { quiet = false } = {}) {
     const prev = g.bpm;
     g.bpm = Math.min(300, Math.max(30, Math.round(Number(v) || 100)));
@@ -588,6 +596,15 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     $('pv-bpm-range').value = g.bpm;
     $('pv-bpm-range').style.setProperty('--fill', `${((g.bpm - 30) / 270) * 100}%`);
     if (!quiet) seq.bpm = g.bpm;
+    // 原曲と一緒に手本を聴いているときは、新しいテンポで鳴らし直す
+    if (g.mode === 'listen' && g.songSync?.job && prev !== g.bpm) {
+      clearTimeout(listenRestart);
+      listenRestart = setTimeout(() => {
+        if (g.mode !== 'listen') return;
+        stopAll();
+        $('pv-listen').click();
+      }, 400);
+    }
     if (g.phrase) {
       try {
         localStorage.setItem(`drum-practice:phrase-bpm:${g.phrase.id}`, String(g.bpm));
@@ -612,6 +629,11 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     $('pv-video').checked = prefs.video;
     $('pv-facing').value = prefs.facing;
     $('pv-facing').disabled = !prefs.video;
+    const hasSong = !!g.phrase?.song;
+    document.querySelectorAll('.song-only').forEach((el) => el.classList.toggle('hidden', !hasSong));
+    $('pv-with-song').checked = prefs.withSong;
+    $('pv-song-vol').value = String(prefs.songVol);
+    $('pv-song-vol').disabled = !prefs.withSong;
     $('pv-click-mode').value = prefs.clickMode;
     $('pv-click-mode').disabled = !prefs.metronome;
     $('pv-autoup').checked = prefs.autoUp;
@@ -646,6 +668,65 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     stopAll();
     startLive();
   }
+
+  // ------------------------------------------------------------ 原曲と一緒に練習 (曲から作ったフレーズ)
+
+  let songLoad = null;
+  function loadSongFor(p) {
+    g.songBuf = null;
+    if (!p.song) return;
+    player.ensureContext();
+    const id = p.song.id;
+    songLoad = songBuffer(player.ctx, id)
+      .then((buf) => {
+        if (g.phrase?.song?.id === id) g.songBuf = buf;
+        if (!buf) toast('このフレーズの原曲のファイルが見つかりません (曲から作り直すと鳴らせます)', 5000);
+      })
+      .catch((err) => {
+        console.error(err);
+        toast('原曲を読み込めませんでした', 4000);
+      });
+  }
+
+  /** loopAt(l) → { time, bpm } に合わせて原曲を鳴らす。bars = 1回分の小節数 */
+  async function startSong(loopAt, bars) {
+    const song = g.phrase?.song;
+    if (!song || !prefs.withSong) return;
+    if (!g.songBuf) await songLoad;
+    if (!g.songBuf || g.mode === 'idle') return;
+    g.songSync ??= new SongSync(player.ctx, player.synth.master);
+    g.songSync.volume = prefs.songVol;
+    const from = g.mode === 'record' ? 0 : (g.range?.from ?? 0);
+    g.songSync.start({ buffer: g.songBuf, start: song.start + (from * 240) / song.bpm, songBpm: song.bpm, bars, loopAt });
+  }
+
+  $('pv-with-song').addEventListener('change', (e) => {
+    prefs.withSong = e.target.checked;
+    savePrefs();
+    if (!prefs.withSong) g.songSync?.stop();
+    syncPrefsUI();
+  });
+  $('pv-song-vol').addEventListener('input', (e) => {
+    prefs.songVol = Number(e.target.value);
+    if (g.songSync) g.songSync.volume = prefs.songVol;
+    savePrefs();
+  });
+
+  // 曲から楽譜を作る
+  initSongImport({
+    player,
+    toast,
+    renderScore: (el, score, opts) => {
+      (async () => {
+        notationModule ??= await import('../notation/render.js');
+        await notationModule.loadNotationFonts();
+        notationModule.renderScore(el, score, opts);
+      })().catch((err) => {
+        el.textContent = `譜面を表示できませんでした (${err.message})`;
+      });
+    },
+    onCreated: (name) => setHub({ tab: 'books', book: name }),
+  });
 
   // ------------------------------------------------------------ 一部の小節だけ練習
 
@@ -830,6 +911,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     seq.restSilence = false;
     seq.nextBpm = null;
     seq.onWrap = null;
+    g.songSync?.stop();
     g.playRange = null;
     g.mode = 'idle';
     updateButtons();
@@ -879,6 +961,10 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     player.play(0);
     g.mode = 'listen';
     updateButtons();
+    const listenDur = (v.measures.length * measureTicks(v.timeSig) * 60) / (g.bpm * PPQ);
+    const t0 = player.startTime;
+    const bpm0 = g.bpm;
+    startSong((l) => ({ time: t0 + l * listenDur, bpm: bpm0 }), v.measures.length);
   });
 
   // ------------------------------------------------------------ ライブ採点 (録音しない)
@@ -973,6 +1059,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
         Math.max(0, (time - player.ctx.currentTime) * 1000),
       );
     };
+    startSong((l) => (liveState === L ? { time: loopStart(L, l), bpm: segOfLoop(L, l).bpm } : null), phrase.measures.length);
     L.listener = new LiveListener(player.ctx, g.recorder.source, { sensitivity: prefs.sensitivity, onHit: (t) => liveHit(t - lat) });
     L.listener.start();
     $('pv-live-panel').classList.remove('hidden');
@@ -1276,6 +1363,8 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       }
     }
     const job = { phrase, loops, expected, start, end, bpm: g.bpm, clicks, clickMode: prefs.metronome ? prefs.clickMode : 'all', cancelled: false };
+    const loopDur = phrase.measures.length * mt * spt;
+    startSong((l) => (l < loops && !job.cancelled ? { time: start + l * loopDur, bpm: job.bpm } : null), phrase.measures.length);
     recordJob = job;
     const wait = () => {
       if (job.cancelled) return;
@@ -1669,6 +1758,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
         }
       }
       if (g.mode === 'live') liveTick();
+      g.songSync?.tick();
       if (g.mode === 'record') {
         const c = $('pv-rec-count');
         if (pos && pos.measure === -1) c.textContent = String(Math.floor(pos.tick / PPQ) + 1);

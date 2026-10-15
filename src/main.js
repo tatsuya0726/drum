@@ -877,7 +877,8 @@ function clearPlaying() {
 
 let lastShown = -2;
 function frame() {
-  const pos = state.view === 'practice' ? null : player.position();
+  // 練習画面や曲の試聴など、譜面エディタ以外で鳴らしているときは追わない
+  const pos = state.view === 'practice' || !state.score ? null : player.position();
   if (pos) {
     updatePosition(pos);
     if (pos.measure >= 0) {

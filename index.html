@@ -103,6 +103,10 @@
               <input id="photo-input" type="file" accept="image/*" multiple hidden />
               <svg class="ic"><use href="#i-camera" /></svg>写真から取り込む
             </label>
+            <label class="btn" title="手元にある曲のファイル (mp3 / m4a / wav など) からドラム譜を自動で作ります">
+              <input id="song-input" type="file" hidden />
+              <svg class="ic"><use href="#i-music" /></svg>曲から作る
+            </label>
           </div>
         </div>
         <div id="phrase-sections"></div>
@@ -181,6 +185,8 @@
               <div class="row pv-range-row" id="pv-range-row"><span>練習する小節</span>
                 <span class="range-selects"><select id="pv-range-from" aria-label="最初の小節"></select>〜<select id="pv-range-to" aria-label="最後の小節"></select></span>
               </div>
+              <label class="row switch-row song-only"><span>原曲を一緒に鳴らす</span><input type="checkbox" class="switch" id="pv-with-song" /></label>
+              <label class="row sub-row song-only"><span>原曲の音量</span><input type="range" id="pv-song-vol" min="0" max="1" step="0.05" aria-label="原曲の音量" /></label>
               <label class="row"><span>メトロノームの鳴らし方</span>
                 <select id="pv-click-mode"></select>
               </label>
@@ -450,6 +456,32 @@
       <button class="big-btn ms-start" id="ms-start"><svg class="ic"><use href="#i-play" /></svg><span>スタート</span></button>
     </div>
 
+    <div class="songimp hidden" id="songimp" role="dialog" aria-label="曲から楽譜を作る">
+      <div class="songimp-box">
+        <header class="songimp-head"><b>曲から楽譜を作る</b><button class="icon-btn" id="si-close" aria-label="閉じる">✕</button></header>
+        <p class="note" id="si-file"></p>
+        <div class="si-progress" id="si-progress"><div class="si-bar"><i id="si-bar"></i></div><span id="si-status"></span></div>
+        <div class="hidden" id="si-result">
+          <p class="si-summary" id="si-summary"></p>
+          <div class="si-row"><span>テンポ</span><b id="si-bpm"></b><span class="si-btns"><button class="btn small" id="si-half">半分にする</button><button class="btn small" id="si-double">倍にする</button></span></div>
+          <div class="si-row"><span>小節の頭</span><span class="si-btns"><button class="btn small" id="si-shift-l">◀ 1拍前へ</button><button class="btn small" id="si-shift-r">1拍後ろへ ▶</button></span></div>
+          <div class="si-row"><span>感度</span><input type="range" id="si-sens" min="0" max="1" step="0.05" value="0.5" aria-label="感度" /></div>
+          <div class="si-row"><span>1フレーズの長さ</span><select id="si-len"><option value="4">4小節</option><option value="8">8小節</option><option value="2">2小節</option></select></div>
+          <div class="si-preview">
+            <div class="si-preview-head">
+              <button class="btn small" id="si-prev-prev" aria-label="前の区間">◀</button>
+              <span id="si-prev-label"></span>
+              <button class="btn small" id="si-prev-next" aria-label="次の区間">▶</button>
+            </div>
+            <div class="si-notation" id="si-notation"></div>
+            <button class="btn" id="si-play">原曲と重ねて試聴</button>
+          </div>
+          <label class="si-row"><span>名前</span><input id="si-name" type="text" /></label>
+          <p class="note">音から自動で読み取るので、間違いもあります。試聴して、テンポが倍・半分になっていたり小節の頭がずれていたりしたら上のボタンで直してください。細かい音は、作ったあとに「コピーして編集」で直せます。4/4拍子の曲向けです。曲のファイルはこの端末の中だけに保存され、練習画面で原曲と一緒に鳴らせます。</p>
+          <button class="btn btn-accent" id="si-create">フレーズを作る</button>
+        </div>
+      </div>
+    </div>
     <div class="cmp hidden" id="cmp" role="dialog" aria-label="録画の比較">
       <div class="cmp-head">
         <b id="cmp-title"></b>
