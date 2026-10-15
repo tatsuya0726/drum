@@ -9,6 +9,7 @@ import { estimateLatency, rankOf, scoreTake, starsOf } from './scoring.js';
 import { allStats, deleteTake, levelOf, listTakes, saveTake, xpOf } from './takes.js';
 import { deleteDoc, deleteDocs, listDocs, loadDoc, makeDoc, saveDoc, saveDocs } from '../library.js';
 import { parsePack } from './pack.js';
+import { getSetting, initSettings, setSetting } from '../settings-store.js';
 
 const $ = (id) => document.getElementById(id);
 const PREFS_KEY = 'drum-practice:game-prefs';
@@ -576,7 +577,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
   $('pv-headphones').addEventListener('change', (e) => {
     prefs.headphones = e.target.checked;
     savePrefs();
-    $('hub-latency').textContent = latencyLabel();
+    renderLatencyUI();
   });
 
   // ------------------------------------------------------------ ずらし
@@ -702,30 +703,60 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
 
   // ------------------------------------------------------------ 録音と採点
 
-  function latencyKey() {
-    return LAT_KEY + (prefs.headphones ? 'headphones' : 'speaker');
+
+
+  /** 保存済みの補正値 (秒)。mode を省くと今のイヤホン設定のもの */
+  function savedLatency(mode) {
+    const v = getSetting(LAT_KEY + (mode ?? (prefs.headphones ? 'headphones' : 'speaker')));
+    return v == null || !Number.isFinite(Number(v)) ? null : Number(v);
+  }
+
+  function setLatency(mode, sec) {
+    setSetting(LAT_KEY + mode, sec == null ? null : Math.round(sec * 1000) / 1000);
+    renderLatencyUI();
   }
 
   function latency() {
-    try {
-      const v = localStorage.getItem(latencyKey());
-      if (v != null) return Number(v);
-    } catch {
-      // 無視
-    }
+    const v = savedLatency();
+    if (v != null) return v;
     const ctx = player.ctx;
     return (ctx?.outputLatency || 0.02) + (ctx?.baseLatency || 0.01) + 0.01;
   }
 
   function latencyLabel() {
-    let v = null;
-    try {
-      v = localStorage.getItem(latencyKey());
-    } catch {
-      // 無視
-    }
-    return v == null ? '未調整' : `${Math.round(Number(v) * 1000)}ms`;
+    const v = savedLatency();
+    return v == null ? '未調整' : `${Math.round(v * 1000)}ms`;
   }
+
+  // 設定パネルの「タイミング補正」: イヤホン / スピーカーそれぞれの値を数値で変えられる
+  function renderLatencyUI() {
+    $('hub-latency').textContent = latencyLabel();
+    for (const mode of ['speaker', 'headphones']) {
+      const v = savedLatency(mode);
+      const input = $(`lat-${mode}`);
+      if (document.activeElement !== input) input.value = v == null ? '' : String(Math.round(v * 1000));
+    }
+    $('lat-current').textContent = prefs.headphones ? 'イヤホン・ヘッドホン' : 'スピーカー';
+  }
+  for (const mode of ['speaker', 'headphones']) {
+    $(`lat-${mode}`).addEventListener('change', (e) => {
+      const ms = e.target.value === '' ? null : Number(e.target.value);
+      if (ms != null && (!Number.isFinite(ms) || ms < -200 || ms > 1000)) {
+        toast('-200〜1000ms の範囲で入れてください');
+        renderLatencyUI();
+        return;
+      }
+      setLatency(mode, ms == null ? null : ms / 1000);
+      toast(ms == null ? '補正値を消しました' : `${mode === 'speaker' ? 'スピーカー' : 'イヤホン'}の補正値を ${ms}ms にしました`);
+    });
+  }
+  $('lat-measure').addEventListener('click', () => {
+    $('panel-close').click(); // 叩くあいだは設定を閉じる
+    calibrate();
+  });
+  initSettings().then(renderLatencyUI);
+  renderLatencyUI();
+
 
   async function ensureRecorder() {
     player.ensureContext();
@@ -1111,12 +1142,7 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
         toast('うまく計れませんでした。クリックに合わせてもう一度叩いてみてください', 5000);
         return;
       }
-      try {
-        localStorage.setItem(latencyKey(), String(lat));
-      } catch {
-        // 無視
-      }
-      $('hub-latency').textContent = latencyLabel();
+      setLatency(prefs.headphones ? 'headphones' : 'speaker', lat);
       toast(`タイミング補正: ${Math.round(lat * 1000)}ms に設定しました`, 4000);
     };
     requestAnimationFrame(wait);

@@ -303,6 +303,23 @@
         </section>
 
         <section>
+          <h3>タイミング補正</h3>
+          <p class="note">録音した音の遅れを差し引く量です。一度決めればこの端末に保存され、次に開いたときもそのまま使います。今は <b id="lat-current">スピーカー</b> の値を使っています。</p>
+          <div class="row">
+            <span>スピーカーで鳴らすとき</span>
+            <span><input id="lat-speaker" type="number" min="-200" max="1000" step="1" inputmode="numeric" placeholder="未調整" /> ms</span>
+          </div>
+          <div class="row">
+            <span>イヤホン・ヘッドホンのとき</span>
+            <span><input id="lat-headphones" type="number" min="-200" max="1000" step="1" inputmode="numeric" placeholder="未調整" /> ms</span>
+          </div>
+          <div class="row">
+            <span class="note">今の設定 (スピーカー / イヤホン) で、クリックに合わせて 8回叩いて自動で測ります</span>
+            <button class="btn nowrap" id="lat-measure">測る</button>
+          </div>
+        </section>
+
+        <section>
           <h3>練習</h3>
           <label class="row switch-row">
             <span>カウントイン (1小節)</span>

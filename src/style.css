@@ -2543,3 +2543,8 @@ body.modal-open {
   padding: 24px 16px;
   color: #b42318;
 }
+
+.nowrap {
+  white-space: nowrap;
+  flex: none;
+}
