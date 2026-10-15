@@ -149,3 +149,27 @@ describe('tick unit migration', () => {
     expect(p.measures[0].notes[0].tick).toBe(PPQ / 5);
   });
 });
+
+import { mixdownTake } from '../src/game/mixdown.js';
+
+describe('playback mixdown', () => {
+  it('puts the mic hits on the metronome clicks after removing the latency', async () => {
+    const sr = 48000;
+    const pcmStart = 10; // pcm[0] の時刻
+    const latency = 0.12;
+    const clicks = [0.5, 1.0, 1.5].map((t, k) => ({ time: pcmStart + t, accent: k === 0 }));
+    // 叩いた音はクリックぴったりに叩いて、補正値の分だけ遅れて録音された
+    const pcm = new Float32Array(sr * 2);
+    for (const c of clicks) pcm[Math.round((c.time - pcmStart + latency) * sr)] = 0.9;
+    const wav = mixdownTake({ pcm, sampleRate: sr, pcmStart, latency, clicks });
+    const bytes = new DataView(await wav.arrayBuffer());
+    const out = [];
+    for (let i = 44; i < bytes.byteLength; i += 2) out.push(bytes.getInt16(i, true) / 0x7fff);
+    const osr = sr / 2;
+    for (const c of clicks) {
+      const at = Math.round((c.time - pcmStart) * osr);
+      // クリックの頭の位置に、叩いた音 (大きな値) がある
+      expect(Math.max(...out.slice(at - 2, at + 3).map(Math.abs))).toBeGreaterThan(0.3);
+    }
+  });
+});

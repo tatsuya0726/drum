@@ -9,6 +9,7 @@ import { estimateLatency, rankOf, scoreTake, starsOf } from './scoring.js';
 import { allStats, deleteTake, levelOf, listTakes, saveTake, xpOf } from './takes.js';
 import { deleteDoc, deleteDocs, listDocs, loadDoc, makeDoc, saveDoc, saveDocs } from '../library.js';
 import { parsePack } from './pack.js';
+import { mixdownTake } from './mixdown.js';
 import { getSetting, initSettings, setSetting } from '../settings-store.js';
 
 const $ = (id) => document.getElementById(id);
@@ -823,7 +824,11 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       for (const o of one) expected.push(start + ((l * phrase.measures.length + o.measure) * mt + o.tick) * spt);
     }
     const end = start + loops * phrase.measures.length * mt * spt;
-    const job = { phrase, loops, expected, start, end, bpm: g.bpm, cancelled: false };
+    // メトロノームを鳴らす予定の時刻 (カウントインから最後まで、1拍ごと)
+    const beatSec = (60 / g.bpm) * (4 / phrase.timeSig.beatUnit);
+    const totalBeats = phrase.timeSig.beats * (1 + loops * phrase.measures.length);
+    const clicks = prefs.metronome ? Array.from({ length: totalBeats }, (_, k) => ({ time: player.startTime + k * beatSec, accent: k % phrase.timeSig.beats === 0 })) : [];
+    const job = { phrase, loops, expected, start, end, bpm: g.bpm, clicks, cancelled: false };
     recordJob = job;
     const wait = () => {
       if (job.cancelled) return;
@@ -866,6 +871,17 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
     const hits = onsets.map((o) => ({ time: rec.pcmStart + o.time - lat, level: o.level })).filter((h) => h.time >= lo && h.time <= hi);
     const result = scoreTake(job.expected, hits);
     result.loops = job.loops;
+    // 聞き返し用の音 (録画でないとき): 採点に使った録音から作り、メトロノームを入れるならぴったりの位置に置く
+    let blob = rec.blob;
+    let mime = rec.mime;
+    if (!rec.isVideo && rec.pcm.length) {
+      try {
+        blob = mixdownTake({ pcm: rec.pcm, sampleRate: rec.sampleRate, pcmStart: rec.pcmStart, latency: lat, clicks: prefs.clickInRec ? job.clicks : [] });
+        mime = 'audio/wav';
+      } catch (err) {
+        console.error(err);
+      }
+    }
 
     const before = allStats();
     const prevBest = before.phrases[job.phrase.id]?.best ?? 0;
@@ -885,8 +901,8 @@ export function initGame({ player, toast, setView, openDoc, onPracticeEnter }) {
       offsets: result.judgments.map((j) => (j.offset == null ? null : Math.round(j.offset * 1000))),
       withClick: prefs.metronome && prefs.clickInRec,
       guide: prefs.guide,
-      blob: rec.blob,
-      mime: rec.mime,
+      blob,
+      mime,
       video: rec.isVideo,
       timeline: rec.isVideo ? videoTimeline(job, result, hits, rec.mediaStart) : undefined,
     };
